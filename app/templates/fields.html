@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}ตั้งค่าฟิลด์ รพ. — SSCC{% endblock %}
+{% block headerbtn %}<a class="btn" href="/">← หน้ารวม</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>ข้อมูลเพิ่มเติมของ รพ. (ไม่ส่งเข้า SSCC)</h2>
+  <p style="font-size:13.5px;color:#666;margin-top:0">
+    หัวข้อที่เพิ่มตรงนี้จะโผล่ท้ายฟอร์มของทุกเคส และลงไฟล์ Excel ให้อัตโนมัติ —
+    ใช้เก็บข้อมูลวิจัย/KPI ของ รพ. ที่ SSCC ไม่มีช่องให้กรอก</p>
+  <table id="tbl">
+    <tr><th style="width:36px"></th><th>หัวข้อ</th><th style="width:150px">รูปแบบการกรอก</th>
+        <th style="width:80px;text-align:center">เปิดใช้</th><th style="width:230px"></th></tr>
+  </table>
+  <div style="margin-top:12px">
+    <button class="btn btn-primary" onclick="openEditor(-1)">＋ เพิ่มหัวข้อใหม่</button>
+  </div>
+</div>
+
+<div class="card" id="editor" style="display:none">
+  <h2 id="edTitle">เพิ่มหัวข้อใหม่</h2>
+  <div class="field"><label>ชื่อหัวข้อ <span class="req">*</span></label>
+    <div><input id="edLabel" placeholder="เช่น mRS ที่ 90 วัน"></div></div>
+  <div class="field"><label>รูปแบบการกรอก</label><div>
+    <select id="edType" onchange="editorTypeChanged()">
+      <option value="text">ข้อความสั้น</option>
+      <option value="textarea">ข้อความยาว (หลายบรรทัด)</option>
+      <option value="number">ตัวเลข</option>
+      <option value="select">ตัวเลือก (ปุ่มกด / รายการให้เลือก)</option>
+      <option value="date">วันที่</option>
+      <option value="time">เวลา</option>
+    </select></div></div>
+  <div class="field" id="rowOptions" style="display:none"><label>ตัวเลือก (บรรทัดละ 1 ตัวเลือก)</label>
+    <div><textarea id="edOptions" rows="4" placeholder="เช่น&#10;ดีขึ้น&#10;เท่าเดิม&#10;แย่ลง"></textarea>
+    <div class="hint" style="grid-column:auto">ไม่เกิน 4 ตัวเลือกจะแสดงเป็นปุ่มกด — มากกว่านั้นเป็นรายการให้เลือก</div></div></div>
+  <div class="field" id="rowMinMax" style="display:none"><label>ค่าต่ำสุด / สูงสุด (เว้นว่างได้)</label>
+    <div style="display:flex;gap:8px"><input id="edMin" type="number" style="max-width:130px" placeholder="ต่ำสุด">
+    <input id="edMax" type="number" style="max-width:130px" placeholder="สูงสุด"></div></div>
+  <div class="field"><label>คำอธิบายใต้ช่อง (ไม่บังคับ)</label><div><input id="edHint"></div></div>
+  <div class="field"><label></label>
+    <div><label style="font-weight:normal"><input type="checkbox" id="edRequired" style="width:auto"> บังคับกรอก</label></div></div>
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <button class="btn btn-success" onclick="saveEditor()">💾 บันทึกหัวข้อ</button>
+    <button class="btn" onclick="closeEditor()">ยกเลิก</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let fields = {{ fields | tojson }};
+let editIdx = -1;
+const TYPE_TH = {text: 'ข้อความสั้น', textarea: 'ข้อความยาว', number: 'ตัวเลข',
+                 select: 'ตัวเลือก', date: 'วันที่', time: 'เวลา'};
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+function render() {
+  const tbl = document.getElementById('tbl');
+  tbl.querySelectorAll('tr:not(:first-child)').forEach(r => r.remove());
+  if (!fields.length) {
+    tbl.insertRow().innerHTML =
+      '<td colspan="5" style="text-align:center;color:#888;padding:22px">ยังไม่มีหัวข้อ — กด "＋ เพิ่มหัวข้อใหม่" เพื่อเริ่ม</td>';
+    return;
+  }
+  fields.forEach((f, i) => {
+    const opts = f.type === 'select'
+      ? `<div style="font-size:12px;color:#888">${esc((f.options || []).map(o => o.t).join(' / '))}</div>` : '';
+    const off = f.enabled === false;
+    tbl.insertRow().innerHTML = `
+      <td style="text-align:center;color:#aaa">${i + 1}</td>
+      <td ${off ? 'style="color:#999"' : ''}>${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}${opts}</td>
+      <td>${TYPE_TH[f.type] || esc(f.type)}</td>
+      <td style="text-align:center"><input type="checkbox" style="width:auto" ${off ? '' : 'checked'}
+          onchange="toggleEnabled(${i}, this.checked)"></td>
+      <td style="white-space:nowrap">
+        <button class="btn" style="padding:4px 10px" onclick="move(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="btn" style="padding:4px 10px" onclick="move(${i},1)" ${i === fields.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="btn" style="padding:4px 10px" onclick="openEditor(${i})">แก้ไข</button>
+        <button class="btn" style="padding:4px 10px;color:#b33" onclick="del(${i})">ลบ</button>
+      </td>`;
+  });
+}
+
+async function persist(msg) {
+  const r = await fetch('/api/custom_fields', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})});
+  const d = await r.json();
+  if (!d.ok) { toast('❌ ' + (d.error || 'บันทึกไม่สำเร็จ')); return false; }
+  fields = d.fields;
+  render();
+  if (msg) toast(msg);
+  return true;
+}
+
+function toggleEnabled(i, on) { fields[i].enabled = on; persist(on ? '✅ เปิดใช้แล้ว' : 'ปิดไว้แล้ว (ข้อมูลที่เคยกรอกไม่หาย)'); }
+function move(i, d) { const t = fields.splice(i, 1)[0]; fields.splice(i + d, 0, t); persist('ย้ายลำดับแล้ว'); }
+function del(i) {
+  if (!confirm(`ลบหัวข้อ "${fields[i].label}" ?\n\nข้อมูลที่เคยกรอกไว้จะยังอยู่ในฐานข้อมูลและ Excel แต่หัวข้อจะหายจากฟอร์ม\nถ้าแค่พักการใช้ชั่วคราว แนะนำติ๊ก "เปิดใช้" ออกแทนการลบ`)) return;
+  fields.splice(i, 1);
+  persist('ลบแล้ว');
+}
+
+function openEditor(i) {
+  editIdx = i;
+  const f = i >= 0 ? fields[i] : {type: 'text'};
+  document.getElementById('edTitle').textContent = i >= 0 ? 'แก้ไข: ' + f.label : 'เพิ่มหัวข้อใหม่';
+  document.getElementById('edLabel').value = f.label || '';
+  document.getElementById('edType').value = f.type || 'text';
+  document.getElementById('edOptions').value = (f.options || []).map(o => o.t).join('\n');
+  document.getElementById('edMin').value = f.min ?? '';
+  document.getElementById('edMax').value = f.max ?? '';
+  document.getElementById('edHint').value = f.hint || '';
+  document.getElementById('edRequired').checked = !!f.required;
+  editorTypeChanged();
+  const ed = document.getElementById('editor');
+  ed.style.display = '';
+  ed.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  document.getElementById('edLabel').focus();
+}
+function closeEditor() { document.getElementById('editor').style.display = 'none'; editIdx = -1; }
+function editorTypeChanged() {
+  const t = document.getElementById('edType').value;
+  document.getElementById('rowOptions').style.display = t === 'select' ? '' : 'none';
+  document.getElementById('rowMinMax').style.display = t === 'number' ? '' : 'none';
+}
+
+async function saveEditor() {
+  const label = document.getElementById('edLabel').value.trim();
+  if (!label) { toast('❌ กรุณาตั้งชื่อหัวข้อก่อน'); return; }
+  const type = document.getElementById('edType').value;
+  const f = editIdx >= 0 ? {...fields[editIdx]} : {enabled: true};
+  f.label = label;
+  f.type = type;
+  f.hint = document.getElementById('edHint').value.trim() || undefined;
+  f.required = document.getElementById('edRequired').checked || undefined;
+  delete f.options; delete f.min; delete f.max;
+  if (type === 'select') {
+    const lines = document.getElementById('edOptions').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length < 2) { toast('❌ ใส่ตัวเลือกอย่างน้อย 2 บรรทัด'); return; }
+    f.options = lines.map(s => ({v: s, t: s}));
+  }
+  if (type === 'number') {
+    const mn = document.getElementById('edMin').value, mx = document.getElementById('edMax').value;
+    if (mn !== '') f.min = +mn;
+    if (mx !== '') f.max = +mx;
+  }
+  if (editIdx >= 0) fields[editIdx] = f; else fields.push(f);
+  if (await persist(editIdx >= 0 ? '✅ แก้ไขแล้ว' : `✅ เพิ่ม "${label}" แล้ว — จะโผล่ท้ายฟอร์มทุกเคส`)) closeEditor();
+}
+
+render();
+</script>
+{% endblock %}

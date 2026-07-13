@@ -5,9 +5,9 @@
       "key": "cf_mrs_90d",
       "label": "mRS ที่ 90 วัน (0-6)",
       "type": "number",
+      "enabled": false,
       "min": 0,
-      "max": 6,
-      "enabled": false
+      "max": 6
     },
     {
       "key": "cf_phone",
@@ -15,5 +15,6 @@
       "type": "text",
       "enabled": false
     }
-  ]
+  ],
+  "_next_id": 2
 }

@@ -38,6 +38,10 @@ input:invalid { border-color: #d33; background: #fff6f6; }
 table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 14px; }
 th { background: #eef3f7; }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.tabs a { padding: 7px 14px; border-radius: 16px; border: 1px solid var(--border); background: #fff; color: #444; text-decoration: none; font-size: 14px; }
+.tabs a.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.banner { background: #fff8e6; border: 1px solid #e8c96a; border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; font-size: 14.5px; }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 22px; border-radius: 8px; opacity: 0; transition: opacity .3s; z-index: 99; }
 #toast.show { opacity: .95; }
 #secnav { position: fixed; right: 10px; top: 70px; width: 165px; font-size: 12.5px; display: none; }

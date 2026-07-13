@@ -7,6 +7,7 @@ flow: login (มือ) -> formadd กรอก A1-A6 -> บันทึก -> �
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
 import db
+import runlock
 
 APP_DIR = Path(__file__).parent
 CONFIG = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
@@ -245,127 +247,224 @@ def find_patient_id(page, base_url, hn, case_id):
     return None
 
 
+def _page_alive(page):
+    try:
+        return not page.is_closed()
+    except Exception:
+        return False
+
+
+def process_case(page, base_url, case, args, queue_mode):
+    """กรอกหนึ่งเคสจนจบ (สร้าง → เติมทุกแท็บ → รอพยาบาลตรวจและบันทึก)
+    คืนสถานะ: submitted | draft (ออกโดยไม่บันทึก) | failed (ข้าม) | timeout (รอเกินเวลา)"""
+    cid = case["id"]
+    data = case["data"]
+    hn = (data.get("x_a2") or "").strip()
+    warnings = []
+
+    # ---- ขั้นที่ 1: สร้างเคส (A1-A6) ----
+    open_add_form(page, base_url, cid)
+    log(cid, "ขั้นที่ 1/3: สร้างเคสใหม่ (A1-A6)")
+    add_fields = [f for f in SCHEMA["fields"] if f.get("on_add_page")]
+    for f in add_fields:
+        v = data.get(f["sscc"])
+        if v not in (None, "", []):
+            fill_field(page, f, v, cid, warnings)
+    # บันทึกสำเร็จ SSCC จะพาไปหน้า formedit ของเคสใหม่ทันที (มี patient_id ใน URL)
+    dest = submit_and_wait(page, base_url, cid, r"stroke_form(edit|list)\.php")
+    if not dest:
+        if queue_mode:
+            log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ — ข้ามเคสนี้ไว้ส่งเดี่ยวทีหลัง")
+            return "failed"
+        log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ (ดูข้อความ SSCC ด้านบน) — แก้บนหน้าเว็บแล้วบันทึกเองได้")
+        if not args.headless:
+            page.wait_for_timeout(REVIEW_WAIT_MS)
+        sys.exit(3)
+    log(cid, "บันทึก A1-A6 แล้ว")
+
+    # ---- ขั้นที่ 2: หาเลขเคสที่เพิ่งสร้าง ----
+    pid = find_patient_id(page, base_url, hn, cid)
+    if not pid:
+        if queue_mode:
+            log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — ข้ามเคสนี้ (เคสอาจถูกสร้างบนเว็บแล้ว ตรวจหน้า list ที)")
+            return "failed"
+        log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — เปิดหน้า list ให้ตรวจสอบเอง (เคสอาจถูกสร้างแล้ว)")
+        if not args.headless:
+            page.wait_for_timeout(REVIEW_WAIT_MS)
+        sys.exit(3)
+    log(cid, f"ขั้นที่ 2/3: ได้เลขที่ผู้ป่วย SSCC = {pid}")
+
+    # ---- ขั้นที่ 3: เติมข้อมูลทุกแท็บ ----
+    page.goto(f"{base_url}/stroke_formedit.php?showdetail=&patient_id={pid}")
+    page.wait_for_selector('[name="x_a2"]', timeout=30000)
+    filled = 0
+    current_section = None
+    for f in SCHEMA["fields"]:
+        v = data.get(f["sscc"])
+        if v in (None, "", []):
+            continue
+        if f["section"] != current_section:
+            current_section = f["section"]
+            activate_tab(page, current_section)
+        if fill_field(page, f, v, cid, warnings):
+            filled += 1
+    # รอบตรวจซ้ำ: บาง select ถูก JS ของเว็บรีเซ็ต (เช่น B5 First Dx รีเซ็ต B6 Final Dx)
+    # ตรวจค่าจริงใน DOM แล้วเติมใหม่เฉพาะตัวที่เพี้ยน
+    refixed = verify_and_refill(page, data, cid, warnings)
+    if refixed:
+        log(cid, f"เติมซ้ำฟิลด์ที่ถูกรีเซ็ต: {', '.join(refixed)}")
+    activate_tab(page, "A")  # กลับแท็บแรกให้พยาบาลเริ่มตรวจ
+    log(cid, f"ขั้นที่ 3/3: เติมข้อมูลแล้ว {filled} ฟิลด์")
+    for w in warnings:
+        log(cid, f"⚠️ {w}")
+
+    if args.auto_confirm:
+        dest = submit_and_wait(page, base_url, cid, r"stroke_form(view|list)\.php")
+        if dest:
+            db.set_submitted(cid, pid, (case.get("fill_log") or "") + "auto-confirm (mock test)")
+            log(cid, f"✅ (mock) บันทึกอัตโนมัติสำเร็จ — patient_id {pid}")
+            return "submitted"
+        log(cid, "❌ (mock) บันทึกไม่สำเร็จ")
+        if queue_mode:
+            return "failed"
+        sys.exit(4)
+
+    # ---- รอพยาบาลตรวจทานและกดบันทึกเอง ----
+    log(cid, "🔍 โปรดตรวจทานทุกแท็บบนหน้าเว็บ แล้วกดปุ่ม [บันทึก] ที่ท้ายฟอร์ม")
+    posted = {"flag": False}
+
+    def _nav(fr):
+        if fr is page.main_frame and "stroke_formview" in fr.url:
+            posted["flag"] = True
+
+    page.on("framenavigated", _nav)
+    try:
+        # บันทึกสำเร็จบนหน้าแก้ไข -> เด้งไป stroke_formview.php (ยืนยันจาก pilot จริง 2026-07-13)
+        page.wait_for_url(re.compile(r"stroke_form(view|list)\.php"), timeout=REVIEW_WAIT_MS)
+    except PWTimeout:
+        log(cid, "หมดเวลารอตรวจทาน (60 นาที) — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ")
+        return "timeout"
+    finally:
+        try:
+            page.remove_listener("framenavigated", _nav)
+        except Exception:
+            pass
+    if posted["flag"]:
+        db.set_submitted(cid, pid, case.get("fill_log") or "")
+        log(cid, f"✅ ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย {pid}")
+        try:
+            import excel_export
+            excel_export.export_master()
+        except Exception as e:
+            log(cid, f"⚠️ อัปเดต Excel ไม่สำเร็จ ({type(e).__name__}) — กด 'สร้าง Excel ใหม่' ที่หน้ารวมได้")
+        return "submitted"
+    log(cid, "ออกจากหน้าแก้ไขโดยไม่ได้บันทึก — เคสยังเป็นร่าง")
+    return "draft"
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--case", type=int, required=True)
+    ap.add_argument("--case", type=int, help="ส่งเคสเดียว")
+    ap.add_argument("--cases", help="ส่งหลายเคสต่อกันเป็นคิว เช่น --cases 12,15,18")
     ap.add_argument("--base-url", default=CONFIG["sscc_base_url"])
     ap.add_argument("--auto-confirm", action="store_true", help="กดบันทึกเองอัตโนมัติ (เฉพาะทดสอบ mock)")
     ap.add_argument("--headless", action="store_true", help="ไม่โชว์หน้าต่าง (เฉพาะทดสอบ mock)")
     args = ap.parse_args()
 
-    case = db.get_case(args.case)
-    if not case:
-        print("ไม่พบเคส")
+    ids = []
+    if args.case:
+        ids.append(args.case)
+    if args.cases:
+        ids += [int(x) for x in args.cases.split(",") if x.strip()]
+    if not ids:
+        print("ต้องระบุ --case หรือ --cases")
         sys.exit(1)
-    data = case["data"]
-    hn = (data.get("x_a2") or "").strip()
-    fields = {f["sscc"]: f for f in SCHEMA["fields"]}
-    warnings = []
 
+    cases = []
+    for i in ids:
+        c = db.get_case(i)
+        if not c:
+            print(f"ไม่พบเคส {i}")
+            sys.exit(1)
+        cases.append(c)
+
+    queue_mode = len(cases) > 1
     is_mock = "127.0.0.1" in args.base_url or "localhost" in args.base_url
     if args.auto_confirm and not is_mock:
         print("--auto-confirm ใช้ได้เฉพาะกับ mock (127.0.0.1) เท่านั้น — ยกเลิก")
         sys.exit(2)
 
-    with sync_playwright() as p:
-        if is_mock:
-            context = p.chromium.launch(headless=args.headless)
-            page = context.new_page()
-        else:
-            # โปรไฟล์ถาวร -> session login ค้างไว้ ไม่ต้อง login ใหม่ทุกเคส
-            profile_dir = str(APP_DIR / "data" / "edge_profile")
-            context = p.chromium.launch_persistent_context(
-                profile_dir, channel=CONFIG.get("browser_channel", "msedge"),
-                headless=args.headless, no_viewport=True)
-            page = context.pages[0] if context.pages else context.new_page()
-        # ยอมรับ dialog อัตโนมัติ (ค่าเริ่มต้นของ Playwright คือกด "ยกเลิก" ซึ่งจะยกเลิกการบันทึก)
-        page.on("dialog", lambda d: d.accept())
-        log(args.case, "เปิดเบราว์เซอร์แล้ว")
-        try:
-            # ---- ขั้นที่ 1: สร้างเคส (A1-A6) ----
-            open_add_form(page, args.base_url, args.case)
-            log(args.case, "ขั้นที่ 1/3: สร้างเคสใหม่ (A1-A6)")
-            add_fields = [f for f in SCHEMA["fields"] if f.get("on_add_page")]
-            for f in add_fields:
-                v = data.get(f["sscc"])
-                if v not in (None, "", []):
-                    fill_field(page, f, v, args.case, warnings)
-            # บันทึกสำเร็จ SSCC จะพาไปหน้า formedit ของเคสใหม่ทันที (มี patient_id ใน URL)
-            dest = submit_and_wait(page, args.base_url, args.case, r"stroke_form(edit|list)\.php")
-            if not dest:
-                log(args.case, "❌ บันทึก A1-A6 ไม่สำเร็จ (ดูข้อความ SSCC ด้านบน) — แก้บนหน้าเว็บแล้วบันทึกเองได้")
-                if not args.headless:
-                    page.wait_for_timeout(REVIEW_WAIT_MS)
-                sys.exit(3)
-            log(args.case, "บันทึก A1-A6 แล้ว")
+    # กันรันซ้อน: โปรไฟล์ Edge เปิดพร้อมกันสองตัวไม่ได้ (mock ใช้เบราว์เซอร์ชั่วคราว ไม่ต้องล็อก)
+    if not is_mock:
+        other = runlock.read()
+        if other and other.get("pid") != os.getpid():
+            for c in cases:
+                log(c["id"], "❌ มีการส่งเข้า SSCC อีกชุดทำงานค้างอยู่ — รอให้เสร็จ (ดูหน้าต่าง Edge) แล้วค่อยส่งใหม่")
+            sys.exit(5)
+        runlock.write({"pid": os.getpid(), "cases": ids, "current": ids[0]})
 
-            # ---- ขั้นที่ 2: หาเลขเคสที่เพิ่งสร้าง ----
-            pid = find_patient_id(page, args.base_url, hn, args.case)
-            if not pid:
-                log(args.case, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — เปิดหน้า list ให้ตรวจสอบเอง (เคสอาจถูกสร้างแล้ว)")
-                if not args.headless:
-                    page.wait_for_timeout(REVIEW_WAIT_MS)
-                sys.exit(3)
-            log(args.case, f"ขั้นที่ 2/3: ได้เลขที่ผู้ป่วย SSCC = {pid}")
-
-            # ---- ขั้นที่ 3: เติมข้อมูลทุกแท็บ ----
-            page.goto(f"{args.base_url}/stroke_formedit.php?showdetail=&patient_id={pid}")
-            page.wait_for_selector('[name="x_a2"]', timeout=30000)
-            filled = 0
-            current_section = None
-            for f in SCHEMA["fields"]:
-                v = data.get(f["sscc"])
-                if v in (None, "", []):
-                    continue
-                if f["section"] != current_section:
-                    current_section = f["section"]
-                    activate_tab(page, current_section)
-                if fill_field(page, f, v, args.case, warnings):
-                    filled += 1
-            # รอบตรวจซ้ำ: บาง select ถูก JS ของเว็บรีเซ็ต (เช่น B5 First Dx รีเซ็ต B6 Final Dx)
-            # ตรวจค่าจริงใน DOM แล้วเติมใหม่เฉพาะตัวที่เพี้ยน
-            refixed = verify_and_refill(page, data, args.case, warnings)
-            if refixed:
-                log(args.case, f"เติมซ้ำฟิลด์ที่ถูกรีเซ็ต: {', '.join(refixed)}")
-            activate_tab(page, "A")  # กลับแท็บแรกให้พยาบาลเริ่มตรวจ
-            log(args.case, f"ขั้นที่ 3/3: เติมข้อมูลแล้ว {filled} ฟิลด์")
-            for w in warnings:
-                log(args.case, f"⚠️ {w}")
-
-            if args.auto_confirm:
-                dest = submit_and_wait(page, args.base_url, args.case, r"stroke_form(view|list)\.php")
-                if dest:
-                    db.set_submitted(args.case, pid, (case.get("fill_log") or "") + "auto-confirm (mock test)")
-                    log(args.case, f"✅ (mock) บันทึกอัตโนมัติสำเร็จ — patient_id {pid}")
-                else:
-                    log(args.case, "❌ (mock) บันทึกไม่สำเร็จ")
-                    sys.exit(4)
-                return
-
-            # ---- รอพยาบาลตรวจทานและกดบันทึกเอง ----
-            log(args.case, "🔍 โปรดตรวจทานทุกแท็บบนหน้าเว็บ แล้วกดปุ่ม [บันทึก] ที่ท้ายฟอร์ม")
-            posted = {"flag": False}
-            page.on("framenavigated", lambda fr: posted.update(flag=True)
-                    if fr is page.main_frame and "stroke_formview" in fr.url else None)
-            try:
-                # บันทึกสำเร็จบนหน้าแก้ไข -> เด้งไป stroke_formview.php (ยืนยันจาก pilot จริง 2026-07-13)
-                page.wait_for_url(re.compile(r"stroke_form(view|list)\.php"), timeout=REVIEW_WAIT_MS)
-            except PWTimeout:
-                log(args.case, "หมดเวลารอตรวจทาน (60 นาที) — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ")
-                return
-            if posted["flag"]:
-                db.set_submitted(args.case, pid, case.get("fill_log") or "")
-                log(args.case, f"✅ ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย {pid}")
+    exit_code = 0
+    try:
+        with sync_playwright() as p:
+            if is_mock:
+                context = p.chromium.launch(headless=args.headless)
+                page = context.new_page()
             else:
-                log(args.case, "ออกจากหน้าแก้ไขโดยไม่ได้บันทึก — เคสยังเป็นร่าง")
-        except Exception as e:
-            log(args.case, f"❌ เกิดข้อผิดพลาด: {type(e).__name__}: {str(e)[:200]}")
-            raise
-        finally:
+                # โปรไฟล์ถาวร -> session login ค้างไว้ ไม่ต้อง login ใหม่ทุกเคส
+                profile_dir = str(APP_DIR / "data" / "edge_profile")
+                context = p.chromium.launch_persistent_context(
+                    profile_dir, channel=CONFIG.get("browser_channel", "msedge"),
+                    headless=args.headless, no_viewport=True)
+                page = context.pages[0] if context.pages else context.new_page()
+            # ยอมรับ dialog อัตโนมัติ (ค่าเริ่มต้นของ Playwright คือกด "ยกเลิก" ซึ่งจะยกเลิกการบันทึก)
+            page.on("dialog", lambda d: d.accept())
+            log(ids[0], "เปิดเบราว์เซอร์แล้ว")
             try:
-                context.close()
-            except Exception:
-                pass
+                sent = 0
+                for pos, case in enumerate(cases, 1):
+                    cid = case["id"]
+                    if queue_mode:
+                        log(cid, f"━━ คิวที่ {pos}/{len(cases)} — เคส #{cid} HN {case.get('hn') or '-'} ━━")
+                        if not is_mock:
+                            runlock.write({"pid": os.getpid(), "cases": ids, "current": cid})
+                    if queue_mode:
+                        try:
+                            result = process_case(page, args.base_url, case, args, queue_mode)
+                        except SystemExit:
+                            raise
+                        except Exception as e:
+                            log(cid, f"❌ เกิดข้อผิดพลาด: {type(e).__name__}: {str(e)[:200]}")
+                            if not _page_alive(page):
+                                for rest in cases[pos:]:
+                                    log(rest["id"], "⏭ ยกเลิก (เบราว์เซอร์ถูกปิดก่อนถึงคิว) — เคสยังเป็นร่าง ส่งใหม่ได้")
+                                raise
+                            continue
+                    else:
+                        result = process_case(page, args.base_url, case, args, queue_mode)
+                    if result == "submitted":
+                        sent += 1
+                    elif result == "timeout" and queue_mode:
+                        # พยาบาลค้างที่เคสนี้เกินเวลา — ไม่เด้งไปเคสถัดไปเอง (กันสับสน)
+                        for rest in cases[pos:]:
+                            log(rest["id"], "⏭ ยกเลิก (เคสก่อนหน้าค้างเกินเวลา) — เคสยังเป็นร่าง ส่งใหม่ได้")
+                        break
+                if queue_mode:
+                    log(cases[-1]["id"], f"🏁 จบคิว: ส่งสำเร็จ {sent}/{len(cases)} เคส")
+                    if sent < len(cases):
+                        exit_code = 6
+            finally:
+                try:
+                    context.close()
+                except Exception:
+                    pass
+    except Exception as e:
+        log(ids[0], f"❌ เกิดข้อผิดพลาด: {type(e).__name__}: {str(e)[:200]}")
+        raise
+    finally:
+        if not is_mock:
+            runlock.release()
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

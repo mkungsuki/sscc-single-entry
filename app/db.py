@@ -58,16 +58,32 @@ def get_case(case_id):
     return d
 
 
-def list_cases(q="", limit=200):
+def list_cases(q="", status="", limit=200):
     sql = "SELECT id, status, hn, fname, sscc_patient_id, created_at, updated_at, submitted_at FROM cases"
-    args = []
+    where, args = [], []
     if q:
-        sql += " WHERE hn LIKE ? OR fname LIKE ?"
-        args = [f"%{q}%", f"%{q}%"]
+        where.append("(hn LIKE ? OR fname LIKE ?)")
+        args += [f"%{q}%", f"%{q}%"]
+    if status:
+        where.append("status = ?")
+        args.append(status)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY id DESC LIMIT ?"
     args.append(limit)
     with _conn() as c:
         return [dict(r) for r in c.execute(sql, args).fetchall()]
+
+
+def status_counts(q=""):
+    sql = "SELECT status, COUNT(*) FROM cases"
+    args = []
+    if q:
+        sql += " WHERE hn LIKE ? OR fname LIKE ?"
+        args = [f"%{q}%", f"%{q}%"]
+    sql += " GROUP BY status"
+    with _conn() as c:
+        return {r[0]: r[1] for r in c.execute(sql, args).fetchall()}
 
 
 def set_submitted(case_id, sscc_patient_id, log=""):

@@ -1,28 +1,107 @@
 {% extends "base.html" %}
-{% block headerbtn %}<a class="btn btn-primary" href="/case/new">＋ เคสใหม่</a>{% endblock %}
+{% block headerbtn %}
+  <a class="btn" href="/fields">⚙️ ฟิลด์ รพ.</a>
+  <a class="btn btn-primary" href="/case/new">＋ เคสใหม่</a>
+{% endblock %}
 {% block content %}
+<div id="queueBanner" class="banner" style="display:none"></div>
 <div class="card">
+  <div class="tabs">
+    {% for s, lbl, ck in [('', 'ทั้งหมด', 'all'), ('draft', '📝 ร่าง — ยังไม่ส่ง', 'draft'),
+                          ('submitted', '✅ ส่ง SSCC แล้ว', 'submitted'), ('imported', '📦 นำเข้า', 'imported')] %}
+    <a class="{{ 'active' if status_f == s else '' }}"
+       href="/?status={{ s }}{% if q %}&q={{ q|urlencode }}{% endif %}">{{ lbl }} ({{ counts.get(ck, 0) }})</a>
+    {% endfor %}
+  </div>
   <form method="get" style="display:flex;gap:8px;margin-bottom:12px">
+    <input type="hidden" name="status" value="{{ status_f }}">
     <input name="q" value="{{ q }}" placeholder="ค้นหา HN หรือชื่อ..." style="max-width:280px">
     <button class="btn">ค้นหา</button>
-    {% if q %}<a class="btn" href="/">ล้าง</a>{% endif %}
+    {% if q %}<a class="btn" href="/?status={{ status_f }}">ล้าง</a>{% endif %}
     <span style="flex:1"></span>
-    <button class="btn" type="button" onclick="fetch('/export').then(r=>r.json()).then(d=>toast('Excel: '+d.path))">📄 สร้าง Excel ใหม่</button>
+    <button class="btn" type="button" onclick="makeExcel()">📄 สร้าง Excel ใหม่</button>
   </form>
   <table>
-    <tr><th style="width:70px">เคส</th><th>HN</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>SSCC ID</th><th>แก้ไขล่าสุด</th></tr>
+    <tr>
+      <th style="width:34px;text-align:center"><input type="checkbox" id="selAll" style="width:auto" title="เลือกเคสร่างทั้งหน้า"></th>
+      <th style="width:70px">เคส</th><th>HN</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>SSCC ID</th><th>แก้ไขล่าสุด</th>
+    </tr>
     {% for c in cases %}
     <tr>
+      <td style="text-align:center">{% if c.status == 'draft' %}<input type="checkbox" class="qsel" value="{{ c.id }}" style="width:auto">{% endif %}</td>
       <td><a href="/case/{{ c.id }}">#{{ c.id }}</a></td>
       <td><a href="/case/{{ c.id }}">{{ c.hn or '-' }}</a></td>
-      <td>{{ c.fname or '-' }}</td>
-      <td><span class="badge {{ c.status }}">{{ {'draft':'ร่าง','submitted':'ส่ง SSCC แล้ว','imported':'นำเข้า'}[c.status] }}</span></td>
+      <td><a href="/case/{{ c.id }}" style="color:inherit;text-decoration:none">{{ c.fname or '-' }}</a></td>
+      <td><span class="badge {{ c.status }}">{{ {'draft':'📝 ร่าง','submitted':'✅ ส่งแล้ว','imported':'📦 นำเข้า'}.get(c.status, c.status) }}</span></td>
       <td>{{ c.sscc_patient_id or '' }}</td>
       <td style="font-size:12.5px;color:#666">{{ c.updated_at or '' }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="6" style="text-align:center;color:#888;padding:26px">ยังไม่มีเคส — กด "＋ เคสใหม่" เพื่อเริ่ม</td></tr>
+    <tr><td colspan="7" style="text-align:center;color:#888;padding:26px">
+      {% if status_f == 'draft' %}ไม่มีเคสร่างค้าง — เยี่ยม!{% else %}ยังไม่มีเคส — กด "＋ เคสใหม่" เพื่อเริ่ม{% endif %}
+    </td></tr>
     {% endfor %}
   </table>
+  <div id="queueBar" style="margin-top:12px;display:none;align-items:center;gap:10px">
+    <button class="btn btn-success" id="btnQueue">🚀 ส่งเคสที่เลือกเข้า SSCC (<span id="qCount">0</span>)</button>
+    <span style="font-size:13px;color:#777">โปรแกรมจะพาไปทีละเคส — ตรวจแล้วกด [บันทึก] บนเว็บ เสร็จแล้วขึ้นเคสถัดไปให้เอง</span>
+  </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function makeExcel() {
+  fetch('/export').then(r => r.json())
+    .then(d => toast(d.ok ? '📄 อัปเดตแล้ว: ' + d.path : '❌ ' + d.error))
+    .catch(() => toast('❌ สร้าง Excel ไม่สำเร็จ'));
+}
+
+// ---- เลือกเคสร่างเพื่อส่งเป็นคิว ----
+function selected() { return Array.from(document.querySelectorAll('.qsel:checked')).map(c => +c.value); }
+function refreshBar() {
+  const n = selected().length;
+  document.getElementById('queueBar').style.display = n ? 'flex' : 'none';
+  document.getElementById('qCount').textContent = n;
+}
+document.querySelectorAll('.qsel').forEach(c => c.addEventListener('change', refreshBar));
+document.getElementById('selAll').addEventListener('change', e => {
+  document.querySelectorAll('.qsel').forEach(c => c.checked = e.target.checked);
+  refreshBar();
+});
+
+document.getElementById('btnQueue').onclick = async () => {
+  const ids = selected();
+  if (!ids.length) return;
+  if (!confirm(`ส่ง ${ids.length} เคสเข้า SSCC ต่อกันเป็นคิว?\n\nโปรแกรมจะเปิด Edge (login ครั้งเดียว) แล้วพาไปทีละเคส\nตรวจทานแต่ละเคสแล้วกด [บันทึก] บนเว็บ — เสร็จแล้วจะขึ้นเคสถัดไปให้เอง`)) return;
+  const r = await fetch('/queue/submit', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({case_ids: ids})});
+  const d = await r.json();
+  if (!d.ok) { toast('❌ ' + d.error); return; }
+  toast(`🚀 เริ่มส่งคิว ${d.count} เคส — ไปที่หน้าต่าง Edge`);
+  wasRunning = true;
+  setTimeout(pollQueue, 1500);
+};
+
+// ---- แบนเนอร์สถานะคิว ----
+let wasRunning = false;
+async function pollQueue() {
+  let d;
+  try { d = await (await fetch('/queue/status')).json(); } catch { d = {running: false}; }
+  const b = document.getElementById('queueBanner');
+  if (d.running) {
+    wasRunning = true;
+    const done = d.cases.filter(c => c.status === 'submitted').length;
+    const cur = d.cases.find(c => c.id === d.current);
+    b.style.display = '';
+    b.textContent = `⏳ กำลังส่งเข้า SSCC — ตอนนี้อยู่ที่เคส #${d.current}` +
+      (cur && cur.hn ? ` (HN ${cur.hn})` : '') +
+      ` • สำเร็จแล้ว ${done}/${d.cases.length} เคส • ไปตรวจและกด [บันทึก] ที่หน้าต่าง Edge`;
+    setTimeout(pollQueue, 3000);
+  } else {
+    b.style.display = 'none';
+    if (wasRunning) location.reload();
+  }
+}
+pollQueue();
+</script>
 {% endblock %}

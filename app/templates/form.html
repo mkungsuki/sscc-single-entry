@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if case %}เคส #{{ case.id }}{% else %}เคสใหม่{% endif %} — SSCC{% endblock %}
 {% block headerbtn %}
+  <a class="btn" href="/">← หน้ารวม</a>
   {% if case %}<span class="badge {{ case.status }}" id="statusBadge">
     {{ {'draft':'ร่าง','submitted':'ส่ง SSCC แล้ว','imported':'นำเข้า'}[case.status] }}</span>{% endif %}
   <button class="btn" id="btnSave">💾 บันทึกร่าง</button>
