@@ -1,0 +1,2 @@
+# ไฟล์ .bat ต้องเป็น CRLF เสมอ — cmd + chcp 65001 (ไทย UTF-8) ตัดบรรทัดเพี้ยนถ้าเป็น LF
+*.bat text eol=crlf

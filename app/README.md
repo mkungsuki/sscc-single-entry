@@ -79,9 +79,10 @@ python tools\make_deploy_zip.py              ← โปรแกรมเปล�
 python tools\make_deploy_zip.py --with-data  ← พกฐานข้อมูลเคสทั้งหมดไปด้วย (ย้ายเครื่องหลัก)
 ```
 
-ได้ไฟล์ `SSCC_deploy_วันที่.zip` ที่ `C:\SSCC` ข้างในมี "อ่านก่อน-วิธีติดตั้ง.txt" ครบทุกขั้น
-สรุปคือเครื่องปลายทางลงแค่ 2 อย่าง: **Python 3.10+** (ติ๊ก Add to PATH) แล้ว `pip install -r requirements.txt`
-จากนั้นดับเบิลคลิก `start.bat` — Edge มีใน Windows อยู่แล้ว ไม่ต้องลงเบราว์เซอร์เพิ่ม
+ได้ไฟล์ `SSCC_deploy_วันที่.zip` ที่ `C:\SSCC` — เครื่องปลายทางแค่**แตก zip แล้วดับเบิลคลิก `setup.bat`**
+มันจะติดตั้ง Python + ไลบรารีให้เอง สร้างทางลัด "SSCC Stroke" บนหน้าจอ แล้วเปิดโปรแกรมเลย
+(Edge มีใน Windows อยู่แล้ว ไม่ต้องลงเบราว์เซอร์เพิ่ม — ถ้าติดตั้ง Python อัตโนมัติไม่ได้
+มันจะเปิด python.org ให้ลงเอง **ติ๊ก Add python.exe to PATH** แล้วรัน setup.bat ซ้ำ)
 
 ⚠️ zip แบบ `--with-data` มีข้อมูลผู้ป่วย — ย้ายด้วย USB เท่านั้น ห้ามส่งผ่าน LINE/email/cloud
 (สิ่งที่ไม่ติดไปกับ zip: session login (`data\edge_profile`) พยาบาล login ใหม่ด้วยบัญชีตัวเอง,

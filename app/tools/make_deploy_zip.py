@@ -17,7 +17,7 @@ DEST_DIR = APP.parent  # C:\SSCC
 
 # ไฟล์/โฟลเดอร์ที่เครื่องพยาบาลต้องใช้ — ไม่รวม data/ (session+ฐานข้อมูล), output/, mock/, __pycache__
 INCLUDE_FILES = ["server.py", "fill_sscc.py", "db.py", "excel_export.py", "import_export.py",
-                 "runlock.py", "start.bat", "requirements.txt", "README.md"]
+                 "runlock.py", "setup.bat", "start.bat", "requirements.txt", "README.md"]
 INCLUDE_DIRS = ["schema", "templates"]
 
 INSTALL_TXT = """วิธีติดตั้ง SSCC Stroke — กรอกครั้งเดียว (เครื่องใหม่)
@@ -25,29 +25,27 @@ INSTALL_TXT = """วิธีติดตั้ง SSCC Stroke — กรอก�
 
 สิ่งที่เครื่องต้องมี: Windows 10/11 (มี Microsoft Edge อยู่แล้ว) + อินเทอร์เน็ตตอนติดตั้งครั้งแรก
 
-1) ติดตั้ง Python (ครั้งเดียว)
-   - โหลดจาก https://www.python.org/downloads/ (เวอร์ชัน 3.10 ขึ้นไป)
-   - ตอนติดตั้ง **ติ๊ก "Add python.exe to PATH"** ก่อนกด Install
+ทำแค่ 2 ขั้น:
 
-2) แตกไฟล์ zip นี้ไว้ที่ไหนก็ได้ เช่น C:\\SSCC-app
-   (ถ้าในเครื่องนี้เคยลงโปรแกรมนี้แล้ว ให้แตกทับได้ — ฐานข้อมูลเดิมไม่หาย)
+1) แตกไฟล์ zip นี้ไว้ที่ไหนก็ได้ เช่น C:\\SSCC-app
+   (ถ้าเครื่องนี้เคยลงโปรแกรมนี้แล้ว แตกทับได้เลย — ฐานข้อมูลเดิมไม่หาย)
 
-3) ติดตั้งไลบรารี (ครั้งเดียว)
-   - เปิดโฟลเดอร์ที่แตกไว้ → คลิกที่แถบที่อยู่ (address bar) พิมพ์ cmd แล้วกด Enter
-   - พิมพ์:  pip install -r requirements.txt
-   - รอจนเสร็จ (ต้องต่อเน็ต)
+2) ดับเบิลคลิก setup.bat แล้วรอจนเสร็จ (2-5 นาที)
+   โปรแกรมจะติดตั้ง Python + ไลบรารีให้เอง สร้างทางลัด "SSCC Stroke"
+   บนหน้าจอ แล้วเปิดโปรแกรมขึ้นมาเลย
 
-4) เปิดใช้งาน: ดับเบิลคลิก start.bat
-   - หน้าเว็บโปรแกรมจะเปิดเอง (http://127.0.0.1:8547)
-   - วิธีใช้ประจำวันอ่านใน README.md
+วันต่อไป: ดับเบิลคลิกทางลัด "SSCC Stroke" บนหน้าจอ — วิธีใช้ประจำวันอ่านใน README.md
+
+ถ้า setup.bat ติดตั้ง Python อัตโนมัติไม่ได้ มันจะเปิดหน้าเว็บ python.org ให้
+ติดตั้งเองโดยติ๊ก "Add python.exe to PATH" แล้วดับเบิลคลิก setup.bat ซ้ำอีกครั้ง
 
 หมายเหตุ
 - ไม่ต้องติดตั้งเบราว์เซอร์เพิ่ม — โปรแกรมใช้ Microsoft Edge ที่มากับ Windows
 - โปรแกรมไม่เก็บรหัสผ่าน SSCC — พยาบาล login ด้วยบัญชีตัวเองเสมอ
 - ข้อมูลทั้งหมดอยู่ในเครื่องนี้เครื่องเดียว (โฟลเดอร์ data\\ และไฟล์ Excel)
   ห้ามแชร์โฟลเดอร์พวกนี้ขึ้น cloud/ไดรฟ์แชร์ (PDPA)
-- เครื่องไม่มีเน็ต: บนเครื่องที่มีเน็ตรัน  pip download -r requirements.txt -d libs
-  ก๊อป libs ไปด้วย แล้วรัน  pip install --no-index --find-links libs -r requirements.txt
+- เครื่องไม่มีเน็ตเลย: บนเครื่องที่มีเน็ตรัน  pip download -r requirements.txt -d libs
+  ก๊อปโฟลเดอร์ libs ไปด้วย แล้วรัน  pip install --no-index --find-links libs -r requirements.txt
 """
 
 
