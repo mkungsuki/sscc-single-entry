@@ -94,7 +94,7 @@ async function persist(msg) {
 function toggleEnabled(i, on) { fields[i].enabled = on; persist(on ? '✅ เปิดใช้แล้ว' : 'ปิดไว้แล้ว (ข้อมูลที่เคยกรอกไม่หาย)'); }
 function move(i, d) { const t = fields.splice(i, 1)[0]; fields.splice(i + d, 0, t); persist('ย้ายลำดับแล้ว'); }
 function del(i) {
-  if (!confirm(`ลบหัวข้อ "${fields[i].label}" ?\n\nข้อมูลที่เคยกรอกไว้จะยังอยู่ในฐานข้อมูลและ Excel แต่หัวข้อจะหายจากฟอร์ม\nถ้าแค่พักการใช้ชั่วคราว แนะนำติ๊ก "เปิดใช้" ออกแทนการลบ`)) return;
+  if (!confirm(`ลบหัวข้อ "${fields[i].label}" ?\n\nข้อมูลที่เคยกรอกไว้จะยังอยู่ในฐานข้อมูลและ Excel แต่หัวข้อจะหายจากฟอร์ม\nและถ้าวันหลังสร้างหัวข้อชื่อเดิมใหม่ จะนับเป็นคนละคอลัมน์กับข้อมูลเก่า\n\nถ้าแค่พักการใช้ชั่วคราว แนะนำติ๊ก "เปิดใช้" ออกแทนการลบ`)) return;
   fields.splice(i, 1);
   persist('ลบแล้ว');
 }

@@ -26,11 +26,14 @@ def master_dir():
     return Path(cfg.get("master_dir") or (APP_DIR / "output"))
 
 
-def _custom_fields():
+def _custom_fields(used_keys):
+    """ฟิลด์ รพ. ที่จะเป็นคอลัมน์ใน Excel: ที่เปิดใช้ + ที่ปิดไว้แต่มีข้อมูลเก่าอยู่
+    (ปิดฟิลด์แล้วคอลัมน์เดิมยังอยู่ครบพร้อม label — ไม่ตกไปเป็นคอลัมน์รหัสท้ายตาราง)"""
     if not CUSTOM_PATH.exists():
         return []
     data = json.loads(CUSTOM_PATH.read_text(encoding="utf-8"))
-    return [f for f in data.get("fields", []) if f.get("enabled", True)]
+    return [f for f in data.get("fields", [])
+            if f.get("enabled", True) or f.get("key") in used_keys]
 
 
 def _label_for_value(field, v):
@@ -46,10 +49,11 @@ def export_master():
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "SSCC_master.xlsx"
 
-    fields = [f for f in SCHEMA["fields"]] + _custom_fields()
     meta_cols = ["case_id", "สถานะ", "เลขที่ผู้ป่วย SSCC", "วันที่บันทึก", "วันที่ส่ง SSCC"]
 
     cases = db.all_cases_full()
+    used_keys = {k for c in cases for k in c["data"]}
+    fields = [f for f in SCHEMA["fields"]] + _custom_fields(used_keys)
     known = {f.get("sscc") or f["key"] for f in fields}
     extra_keys = sorted({k for c in cases for k in c["data"] if k not in known})
 

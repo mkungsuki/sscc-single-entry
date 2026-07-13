@@ -51,6 +51,9 @@ TESTDATA = {
     "x_d1[]": ["CTA", "MRA"], "x_d2": "1",
 }
 
+# ฟิลด์ รพ. (cf_*) กรอกปนไปด้วย — ต้องอยู่ในแอปครบ แต่ห้ามหลุดไปเว็บ SSCC เด็ดขาด
+CUSTOM_DATA = {"cf_test_mrs": "3", "cf_test_note": "ทดสอบฟิลด์ รพ. ห้ามไปโผล่บนเว็บ"}
+
 
 def hosp_name_to_code(name):
     f = FIELDS["x_a6_hospcode"]
@@ -90,7 +93,7 @@ def main():
             print("FAIL: mock ไม่ขึ้น")
             sys.exit(1)
 
-        case_id = db.save_case(None, TESTDATA)
+        case_id = db.save_case(None, {**TESTDATA, **CUSTOM_DATA})
         print(f"สร้างเคสทดสอบ #{case_id}")
 
         r = subprocess.run(
@@ -119,8 +122,16 @@ def main():
             if str(got) != str(exp):
                 failures.append((name, exp, got))
 
-        # เช็คสถานะเคสในแอปต้องเป็น submitted
+        # ฟิลด์ รพ. ต้องไม่หลุดไปเว็บ และค่าต้องยังอยู่ครบในแอป
+        leaked = [k for k in rec if k.startswith("cf_")]
+        if leaked:
+            failures.append(("(ฟิลด์ รพ. หลุดไปเว็บ SSCC)", "ไม่มี", leaked))
         case = db.get_case(case_id)
+        for k, v in CUSTOM_DATA.items():
+            if case["data"].get(k) != v:
+                failures.append((f"(ฟิลด์ รพ. {k} ในแอป)", v, case["data"].get(k)))
+
+        # เช็คสถานะเคสในแอปต้องเป็น submitted
         if case["status"] != "submitted":
             failures.append(("(สถานะเคสในแอป)", "submitted", case["status"]))
 
