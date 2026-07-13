@@ -12,9 +12,14 @@ from openpyxl.utils import get_column_letter
 import db
 
 APP_DIR = Path(__file__).parent
-CONFIG = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
 SCHEMA = json.loads((APP_DIR / "schema" / "sscc_fields.json").read_text(encoding="utf-8"))
 CUSTOM_PATH = APP_DIR / "schema" / "custom_fields.json"
+
+
+def master_dir():
+    """โฟลเดอร์เก็บ Excel — อ่าน config สดทุกครั้ง (ผู้ใช้เปลี่ยนที่เก็บได้จากหน้าเว็บ)"""
+    cfg = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
+    return Path(cfg.get("master_dir") or (APP_DIR / "output"))
 
 
 def _custom_fields():
@@ -33,7 +38,7 @@ def _label_for_value(field, v):
 
 
 def export_master():
-    out_dir = Path(CONFIG.get("master_dir") or (APP_DIR / "output"))
+    out_dir = master_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "SSCC_master.xlsx"
 

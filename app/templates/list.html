@@ -46,6 +46,13 @@
     <button class="btn btn-success" id="btnQueue">🚀 ส่งเคสที่เลือกเข้า SSCC (<span id="qCount">0</span>)</button>
     <span style="font-size:13px;color:#777">โปรแกรมจะพาไปทีละเคส — ตรวจแล้วกด [บันทึก] บนเว็บ เสร็จแล้วขึ้นเคสถัดไปให้เอง</span>
   </div>
+  <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#666">
+    ไฟล์ Excel เก็บที่: <b id="masterDir" style="font-weight:500;color:#444">{{ master_dir }}</b>
+    <button class="btn" style="padding:4px 12px;font-size:13px" onclick="openOutput()">📂 เปิดโฟลเดอร์</button>
+    <button class="btn" style="padding:4px 12px;font-size:13px" onclick="changeDir()">เปลี่ยนที่เก็บ...</button>
+    <button class="btn" style="padding:4px 12px;font-size:13px;{% if not config.master_dir %}display:none{% endif %}"
+            id="btnResetDir" onclick="resetDir()">กลับค่าเริ่มต้น</button>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -55,6 +62,23 @@ function makeExcel() {
     .then(d => toast(d.ok ? '📄 อัปเดตแล้ว: ' + d.path : '❌ ' + d.error))
     .catch(() => toast('❌ สร้าง Excel ไม่สำเร็จ'));
 }
+
+// ---- ที่เก็บไฟล์ Excel ----
+function openOutput() { fetch('/settings/open_output', {method: 'POST'}); }
+async function setDir(body) {
+  const r = await fetch('/settings/master_dir', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const d = await r.json();
+  if (!d.ok) { if (d.error !== 'ยกเลิกการเลือกโฟลเดอร์') toast('❌ ' + d.error); return; }
+  document.getElementById('masterDir').textContent = d.path;
+  document.getElementById('btnResetDir').style.display = body.action === 'reset' ? 'none' : '';
+  toast(d.warn ? d.warn : '✅ ย้ายที่เก็บแล้ว: ' + d.path, d.warn ? 6000 : 3500);
+}
+function changeDir() {
+  toast('เปิดหน้าต่างเลือกโฟลเดอร์แล้ว (ถ้าไม่เห็น ลองดูหลังหน้าต่างนี้)', 4000);
+  setDir({});
+}
+function resetDir() { setDir({action: 'reset'}); }
 
 // ---- เลือกเคสร่างเพื่อส่งเป็นคิว ----
 function selected() { return Array.from(document.querySelectorAll('.qsel:checked')).map(c => +c.value); }

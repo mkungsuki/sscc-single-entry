@@ -9,6 +9,8 @@ app/output/
 # screenshot หน้าจอ (มีข้อมูลผู้ป่วย)
 *.png
 สกรีนช็อต*
+# zip สำหรับย้ายเครื่อง (แบบ --with-data มีข้อมูลผู้ป่วย)
+SSCC_deploy_*.zip
 
 # ===== ephemeral / build =====
 app/mock/mock_store.json

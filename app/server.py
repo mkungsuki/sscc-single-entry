@@ -70,7 +70,8 @@ def index():
     counts = db.status_counts(q)
     counts["all"] = sum(counts.values())
     return render_template("list.html", cases=cases, q=q, status_f=status_f,
-                           counts=counts, config=CONFIG)
+                           counts=counts, config=CONFIG,
+                           master_dir=str(excel_export.master_dir()))
 
 
 @app.route("/case/new")
@@ -180,6 +181,63 @@ def export_now():
     except PermissionError:
         return jsonify(ok=False, error="ไฟล์ Excel master เปิดค้างอยู่ — ปิดไฟล์แล้วกดใหม่")
     return jsonify(ok=True, path=path)
+
+
+def save_config():
+    (APP_DIR / "config.json").write_text(
+        json.dumps(CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def choose_dir_dialog():
+    """เปิดหน้าต่างเลือกโฟลเดอร์ของ Windows (รันใน subprocess กันปัญหา tkinter กับ thread)"""
+    script = ("import tkinter as tk\n"
+              "from tkinter import filedialog\n"
+              "r = tk.Tk(); r.withdraw(); r.attributes('-topmost', True)\n"
+              "print(filedialog.askdirectory(title='เลือกโฟลเดอร์เก็บไฟล์ Excel'))")
+    try:
+        out = subprocess.run([sys.executable, "-X", "utf8", "-c", script],
+                             capture_output=True, text=True, encoding="utf-8", timeout=300)
+        return (out.stdout or "").strip()
+    except Exception:
+        return ""
+
+
+@app.route("/settings/master_dir", methods=["POST"])
+def set_master_dir():
+    payload = request.get_json(force=True)
+    if payload.get("action") == "reset":
+        path = ""
+    elif "path" in payload:
+        path = str(payload.get("path") or "").strip()
+    else:
+        path = choose_dir_dialog()
+        if not path:
+            return jsonify(ok=False, error="ยกเลิกการเลือกโฟลเดอร์")
+    if path:
+        p = Path(path)
+        if not p.is_dir():
+            return jsonify(ok=False, error=f"ไม่พบโฟลเดอร์ {path}"), 400
+        path = str(p)
+    CONFIG["master_dir"] = path
+    save_config()
+    warn = ""
+    low = path.lower()
+    if path.startswith("\\\\") or "onedrive" in low or "google drive" in low or "dropbox" in low:
+        warn = "⚠️ ที่เก็บนี้อยู่บนไดรฟ์แชร์/cloud — ไฟล์มีข้อมูลผู้ป่วย ระวังเรื่อง PDPA"
+    try:
+        excel_export.export_master()
+    except PermissionError:
+        warn = (warn + " • " if warn else "") + "ยังเขียนไฟล์ไม่ได้ (Excel เปิดค้างอยู่)"
+    return jsonify(ok=True, path=str(excel_export.master_dir()), warn=warn)
+
+
+@app.route("/settings/open_output", methods=["POST"])
+def open_output():
+    d = excel_export.master_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    import os
+    os.startfile(str(d))  # เปิด File Explorer (แอปรันบนเครื่องเดียวกับผู้ใช้เสมอ)
+    return jsonify(ok=True)
 
 
 @app.route("/fields")
