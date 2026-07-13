@@ -71,7 +71,8 @@ def index():
     counts["all"] = sum(counts.values())
     return render_template("list.html", cases=cases, q=q, status_f=status_f,
                            counts=counts, config=CONFIG,
-                           master_dir=str(excel_export.master_dir()))
+                           master_dir=str(excel_export.master_dir()),
+                           excel=excel_export.status())
 
 
 @app.route("/case/new")
@@ -106,11 +107,8 @@ def case_save():
             preserved = {k: v for k, v in old["data"].items() if k not in known}
             data = {**preserved, **data}
     new_id = db.save_case(case_id, data)
-    try:
-        excel_export.export_master()
-    except PermissionError:
-        return jsonify(ok=True, case_id=new_id,
-                       warn="บันทึกแล้ว แต่เขียน Excel ไม่ได้ (ไฟล์ master เปิดค้างอยู่ — ปิดแล้วบันทึกอีกครั้ง)")
+    # Excel เขียนเบื้องหลัง — ไฟล์ใหญ่ขึ้นตามจำนวนเคส (4 พันเคส ~15 วิ) ห้ามให้ปุ่มบันทึกรอ
+    excel_export.schedule_export()
     return jsonify(ok=True, case_id=new_id)
 
 

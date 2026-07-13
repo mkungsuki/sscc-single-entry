@@ -48,6 +48,8 @@
   </div>
   <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#666">
     ไฟล์ Excel เก็บที่: <b id="masterDir" style="font-weight:500;color:#444">{{ master_dir }}</b>
+    <span>(อัปเดตล่าสุด {{ excel.updated or '—' }})</span>
+    {% if excel.error %}<span style="color:#b33">⚠️ {{ excel.error }}</span>{% endif %}
     <button class="btn" style="padding:4px 12px;font-size:13px" onclick="openOutput()">📂 เปิดโฟลเดอร์</button>
     <button class="btn" style="padding:4px 12px;font-size:13px" onclick="changeDir()">เปลี่ยนที่เก็บ...</button>
     <button class="btn" style="padding:4px 12px;font-size:13px;{% if not config.master_dir %}display:none{% endif %}"

@@ -352,11 +352,6 @@ def process_case(page, base_url, case, args, queue_mode):
     if posted["flag"]:
         db.set_submitted(cid, pid, case.get("fill_log") or "")
         log(cid, f"✅ ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย {pid}")
-        try:
-            import excel_export
-            excel_export.export_master()
-        except Exception as e:
-            log(cid, f"⚠️ อัปเดต Excel ไม่สำเร็จ ({type(e).__name__}) — กด 'สร้าง Excel ใหม่' ที่หน้ารวมได้")
         return "submitted"
     log(cid, "ออกจากหน้าแก้ไขโดยไม่ได้บันทึก — เคสยังเป็นร่าง")
     return "draft"
@@ -404,6 +399,7 @@ def main():
         runlock.write({"pid": os.getpid(), "cases": ids, "current": ids[0]})
 
     exit_code = 0
+    sent = 0
     try:
         with sync_playwright() as p:
             if is_mock:
@@ -420,7 +416,6 @@ def main():
             page.on("dialog", lambda d: d.accept())
             log(ids[0], "เปิดเบราว์เซอร์แล้ว")
             try:
-                sent = 0
                 for pos, case in enumerate(cases, 1):
                     cid = case["id"]
                     if queue_mode:
@@ -463,6 +458,14 @@ def main():
     finally:
         if not is_mock:
             runlock.release()
+        # อัปเดต Excel ครั้งเดียวตอนจบ (ไฟล์ใหญ่ เขียนราว 15 วิ — ไม่ทำระหว่างคิวให้เคสถัดไปรอ)
+        if sent:
+            try:
+                import excel_export
+                excel_export.export_master()
+                log(ids[0], "อัปเดตไฟล์ Excel แล้ว")
+            except Exception as e:
+                log(ids[0], f"⚠️ อัปเดต Excel ไม่สำเร็จ ({type(e).__name__}) — กด 'สร้าง Excel ใหม่' ที่หน้ารวมได้")
     if exit_code:
         sys.exit(exit_code)
 

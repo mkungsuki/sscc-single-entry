@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-"""สร้างไฟล์ Excel master จากฐานข้อมูล — 1 แถวต่อเคส + backup อัตโนมัติ"""
+"""สร้างไฟล์ Excel master จากฐานข้อมูล — 1 แถวต่อเคส + backup อัตโนมัติ
+ไฟล์ถูกเขียนใหม่ทั้งไฟล์ทุกครั้ง (กระจกเงาของฐานข้อมูล — ไม่มีแถวซ้ำ/ตกหล่น)
+เคสหลักพันใช้เวลาราว 15 วินาที จึงมี schedule_export() ให้เขียนเบื้องหลังแทนการรอ"""
 import json
+import os
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -85,7 +89,14 @@ def export_master():
         for i in range(1, min(ws_.max_column, 60) + 1):
             ws_.column_dimensions[get_column_letter(i)].width = 14
 
-    wb.save(out_path)
+    # เขียนลงไฟล์ชั่วคราวก่อนแล้วสลับ — ไฟล์ master ไม่มีวันเสียครึ่งๆ กลางๆ แม้โปรแกรมถูกปิดกลางคัน
+    tmp = out_path.with_name(out_path.name + ".tmp")
+    wb.save(tmp)
+    try:
+        os.replace(tmp, out_path)
+    except PermissionError:
+        tmp.unlink(missing_ok=True)
+        raise
 
     # backup รายวัน
     bak_dir = out_dir / "backups"
@@ -93,6 +104,44 @@ def export_master():
     bak = bak_dir / f"SSCC_master_{datetime.now():%Y%m%d}.xlsx"
     shutil.copy2(out_path, bak)
     return str(out_path)
+
+
+_bg_lock = threading.Lock()
+_bg_state = {"running": False, "pending": False, "last_error": None}
+
+
+def schedule_export():
+    """สั่ง export เบื้องหลัง — เรียกซ้ำระหว่างที่กำลังเขียนอยู่จะต่อคิวไว้แค่รอบเดียว"""
+    with _bg_lock:
+        if _bg_state["running"]:
+            _bg_state["pending"] = True
+            return
+        _bg_state["running"] = True
+    threading.Thread(target=_bg_worker, daemon=True).start()
+
+
+def _bg_worker():
+    while True:
+        try:
+            export_master()
+            _bg_state["last_error"] = None
+        except PermissionError:
+            _bg_state["last_error"] = "ไฟล์ Excel เปิดค้างอยู่ — ปิดไฟล์แล้วกด 'สร้าง Excel ใหม่' หรือบันทึกเคสอีกครั้ง"
+        except Exception as e:
+            _bg_state["last_error"] = f"{type(e).__name__}: {str(e)[:120]}"
+        with _bg_lock:
+            if _bg_state["pending"]:
+                _bg_state["pending"] = False
+                continue
+            _bg_state["running"] = False
+            return
+
+
+def status():
+    """สถานะไฟล์ master สำหรับโชว์หน้ารวม — เวลาอัปเดตล่าสุดอ่านจาก mtime จริงของไฟล์"""
+    p = master_dir() / "SSCC_master.xlsx"
+    updated = datetime.fromtimestamp(p.stat().st_mtime).strftime("%d/%m %H:%M") if p.exists() else None
+    return {"updated": updated, "error": _bg_state["last_error"], "running": _bg_state["running"]}
 
 
 if __name__ == "__main__":
