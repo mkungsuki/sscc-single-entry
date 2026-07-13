@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}SSCC Stroke — กรอกครั้งเดียว{% endblock %}</title>
+<style>
+:root { --blue: #2b7bb9; --bg: #f4f6f8; --border: #d7dde3; --ok: #1e8e4e; --warn: #c47f00; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", "Leelawadee UI", Tahoma, sans-serif; margin: 0; background: var(--bg); color: #222; font-size: 15px; }
+header { background: var(--blue); color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 50; }
+header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+header a { color: #eaf4fc; text-decoration: none; }
+main { max-width: 1080px; margin: 18px auto; padding: 0 14px 80px; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+.card h2 { font-size: 15px; margin: 0 0 12px; color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.btn { display: inline-block; border: none; border-radius: 6px; padding: 9px 18px; font-size: 15px; cursor: pointer; background: #e4e9ee; color: #222; text-decoration: none; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-success { background: var(--ok); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; width: 100%; max-width: 420px; background: #fff; }
+input:invalid { border-color: #d33; background: #fff6f6; }
+.field { display: grid; grid-template-columns: 320px 1fr; gap: 4px 14px; padding: 6px 0; align-items: start; }
+.field > label { padding-top: 7px; font-size: 14px; }
+.field .hint { grid-column: 2; font-size: 12.5px; color: #777; }
+.field.hidden { display: none; }
+.req { color: #d33; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { position: relative; }
+.pill input { position: absolute; opacity: 0; pointer-events: none; }
+.pill span { display: inline-block; padding: 6px 14px; border: 1px solid var(--border); border-radius: 16px; cursor: pointer; background: #fff; user-select: none; font-size: 14px; }
+.pill span:hover { border-color: var(--blue); }
+.pill input:checked + span { background: var(--blue); color: #fff; border-color: var(--blue); }
+.badge { padding: 2px 10px; border-radius: 12px; font-size: 12.5px; }
+.badge.draft { background: #fff3d6; color: var(--warn); }
+.badge.submitted { background: #dff3e6; color: var(--ok); }
+.badge.imported { background: #e8e8f5; color: #4a4a9c; }
+table { border-collapse: collapse; width: 100%; background: #fff; }
+th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 14px; }
+th { background: #eef3f7; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 22px; border-radius: 8px; opacity: 0; transition: opacity .3s; z-index: 99; }
+#toast.show { opacity: .95; }
+#secnav { position: fixed; right: 10px; top: 70px; width: 165px; font-size: 12.5px; display: none; }
+@media (min-width: 1420px) { #secnav { display: block; } }
+#secnav a { display: block; padding: 4px 8px; color: #444; text-decoration: none; border-left: 3px solid var(--border); }
+#secnav a:hover { border-color: var(--blue); color: var(--blue); }
+@media (max-width: 720px) { .field { grid-template-columns: 1fr; } .field .hint { grid-column: 1; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="/">🏥 SSCC Stroke — กรอกครั้งเดียว</a></h1>
+  <span style="flex:1"></span>
+  {% block headerbtn %}{% endblock %}
+</header>
+<main>{% block content %}{% endblock %}</main>
+<div id="toast"></div>
+<script>
+function toast(msg, ms=2600) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

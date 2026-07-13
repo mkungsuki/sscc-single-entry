@@ -1,0 +1,17 @@
+{
+  "_source": "ขุดจากเคสจริงบนเว็บ SSCC 2026-07-13 (hidden x_c18_drug value เทียบกับชื่อที่แสดง)",
+  "drugs": [
+    {"v": "1", "t": "Aspirin"},
+    {"v": "3", "t": "Clopidogrel, Plavix"},
+    {"v": "5", "t": "Cilostazol, Pletaal"},
+    {"v": "7", "t": "Warfarin"},
+    {"v": "8", "t": "Dabigatran, Pradaxa"},
+    {"v": "9", "t": "Apixaban, Eliquis"},
+    {"v": "10", "t": "Rivaroxaban, Xarelto"},
+    {"v": "11", "t": "Aspirin+Ticlopidine"},
+    {"v": "12", "t": "Aspirin+Clopidogrel"},
+    {"v": "13", "t": "Aspirin+Cilostazol"},
+    {"v": "14", "t": "Clopidogrel+Cilostazol"},
+    {"v": "26", "t": "Edoxaban, Savaysa, Lixiana"}
+  ]
+}

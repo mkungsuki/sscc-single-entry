@@ -1,0 +1,18 @@
+# ===== ข้อมูลผู้ป่วยจริง (PDPA — ห้ามเข้า git เด็ดขาด) =====
+# ฐานข้อมูลเคสจริง + Excel master + backup
+app/data/
+app/output/
+# ไฟล์ export จาก SSCC (มีชื่อ+เลขบัตร 4000 เคส)
+*.csv
+*.xls
+*.xlsx
+# screenshot หน้าจอ (มีข้อมูลผู้ป่วย)
+*.png
+สกรีนช็อต*
+
+# ===== ephemeral / build =====
+app/mock/mock_store.json
+app/data/edge_profile/
+__pycache__/
+*.pyc
+.DS_Store

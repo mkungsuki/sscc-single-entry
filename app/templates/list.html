@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block headerbtn %}<a class="btn btn-primary" href="/case/new">＋ เคสใหม่</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" style="display:flex;gap:8px;margin-bottom:12px">
+    <input name="q" value="{{ q }}" placeholder="ค้นหา HN หรือชื่อ..." style="max-width:280px">
+    <button class="btn">ค้นหา</button>
+    {% if q %}<a class="btn" href="/">ล้าง</a>{% endif %}
+    <span style="flex:1"></span>
+    <button class="btn" type="button" onclick="fetch('/export').then(r=>r.json()).then(d=>toast('Excel: '+d.path))">📄 สร้าง Excel ใหม่</button>
+  </form>
+  <table>
+    <tr><th style="width:70px">เคส</th><th>HN</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>SSCC ID</th><th>แก้ไขล่าสุด</th></tr>
+    {% for c in cases %}
+    <tr>
+      <td><a href="/case/{{ c.id }}">#{{ c.id }}</a></td>
+      <td><a href="/case/{{ c.id }}">{{ c.hn or '-' }}</a></td>
+      <td>{{ c.fname or '-' }}</td>
+      <td><span class="badge {{ c.status }}">{{ {'draft':'ร่าง','submitted':'ส่ง SSCC แล้ว','imported':'นำเข้า'}[c.status] }}</span></td>
+      <td>{{ c.sscc_patient_id or '' }}</td>
+      <td style="font-size:12.5px;color:#666">{{ c.updated_at or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" style="text-align:center;color:#888;padding:26px">ยังไม่มีเคส — กด "＋ เคสใหม่" เพื่อเริ่ม</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

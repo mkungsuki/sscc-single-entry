@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}{% if case %}เคส #{{ case.id }}{% else %}เคสใหม่{% endif %} — SSCC{% endblock %}
+{% block headerbtn %}
+  {% if case %}<span class="badge {{ case.status }}" id="statusBadge">
+    {{ {'draft':'ร่าง','submitted':'ส่ง SSCC แล้ว','imported':'นำเข้า'}[case.status] }}</span>{% endif %}
+  <button class="btn" id="btnSave">💾 บันทึกร่าง</button>
+  <button class="btn btn-success" id="btnSubmit" {% if not case or case.status == 'submitted' %}disabled{% endif %}>🚀 ส่งเข้า SSCC</button>
+{% endblock %}
+{% block content %}
+
+{% set sections = [] %}
+{% for f in fields %}{% if f.section_title not in sections %}{% set _ = sections.append(f.section_title) %}{% endif %}{% endfor %}
+
+<nav id="secnav">
+  {% for s in sections %}<a href="#sec{{ loop.index }}">{{ s.split('(')[0] }}</a>{% endfor %}
+</nav>
+
+<form id="mainForm" onsubmit="return false">
+{% set ns = namespace(sec='', idx=0) %}
+{% for f in fields %}
+  {% if f.section_title != ns.sec %}
+    {% if ns.sec %}</div>{% endif %}
+    {% set ns.sec = f.section_title %}{% set ns.idx = ns.idx + 1 %}
+    <div class="card" id="sec{{ ns.idx }}"><h2>{{ f.section_title }}</h2>
+  {% endif %}
+  {% set key = field_key(f) %}
+  {% set val = values.get(key, f.get('default', '')) %}
+  <div class="field" data-field data-key="{{ key }}" data-type="{{ f.type }}">
+    <label>{{ f.label }}{% if f.get('required') %} <span class="req">*</span>{% endif %}</label>
+    <div>
+    {% if f.type == 'select' and f.get('options', [])|length <= 4 and not f.get('special') %}
+      <div class="pills" data-pills>
+        {% for o in f.get('options', []) %}
+        <label class="pill"><input type="radio" name="rg_{{ key|replace('[','')|replace(']','') }}"
+               value="{{ o.v }}" {% if val == o.v %}checked{% endif %}><span>{{ o.t }}</span></label>
+        {% endfor %}
+      </div>
+    {% elif f.type == 'select' %}
+      <select data-input {% if f.get('required') %}required{% endif %}>
+        <option value="">— เลือก —</option>
+        {% for o in f.get('options', []) %}
+        <option value="{{ o.v }}" {% if val == o.v %}selected{% endif %}>{{ o.t }}</option>
+        {% endfor %}
+      </select>
+    {% elif f.type == 'checkbox-group' %}
+      {% for o in f.get('options', []) %}
+      <label style="display:block;font-weight:normal">
+        <input type="checkbox" style="width:auto" value="{{ o.v }}" {% if val and o.v in val %}checked{% endif %}> {{ o.t }}
+      </label>
+      {% endfor %}
+    {% elif f.type == 'number' %}
+      <input type="number" data-input value="{{ val }}"
+             {% if f.get('min') is not none %}min="{{ f.min }}"{% endif %}
+             {% if f.get('max') is not none %}max="{{ f.max }}"{% endif %}
+             {% if f.get('step') %}step="{{ f.step }}"{% endif %}
+             {% if f.get('required') %}required{% endif %}>
+    {% elif f.type == 'date' %}
+      <input type="date" data-input value="{{ val }}" {% if f.get('required') %}required{% endif %}>
+    {% elif f.type == 'time' %}
+      <input type="time" data-input step="60" value="{{ val }}" {% if f.get('required') %}required{% endif %}>
+    {% elif f.type == 'textarea' %}
+      <textarea data-input rows="2">{{ val }}</textarea>
+    {% elif f.get('special') == 'cascade_hospital' %}
+      <input type="text" data-input list="dl_{{ key|replace('[','')|replace(']','') }}" value="{{ val }}"
+             placeholder="พิมพ์ชื่อโรงพยาบาลตามที่สะกดใน SSCC">
+      <datalist id="dl_{{ key|replace('[','')|replace(']','') }}">
+        {% for o in f.get('options', []) %}<option value="{{ o.t }}">{% endfor %}
+      </datalist>
+    {% else %}
+      <input type="text" data-input value="{{ val }}"
+             {% if f.get('pattern') %}pattern="{{ f.pattern }}"{% endif %}
+             {% if f.get('required') %}required{% endif %}>
+    {% endif %}
+    </div>
+    {% if f.get('hint') %}<div class="hint">{{ f.hint }}</div>{% endif %}
+  </div>
+{% endfor %}
+{% if ns.sec %}</div>{% endif %}
+</form>
+
+<div class="card" id="fillLogCard" style="display:none">
+  <h2>สถานะการส่งเข้า SSCC</h2>
+  <pre id="fillLog" style="white-space:pre-wrap;font-size:13px;margin:0"></pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SHOW_IF = {{ show_if_map | tojson }};
+let caseId = {{ case.id if case else 'null' }};
+let dirty = false;
+
+function fieldBox(key) { return document.querySelector(`[data-field][data-key="${CSS.escape(key)}"]`); }
+
+function valueOf(box) {
+  const type = box.dataset.type;
+  if (type === 'checkbox-group')
+    return Array.from(box.querySelectorAll('input:checked')).map(c => c.value);
+  const pills = box.querySelector('[data-pills]');
+  if (pills) {
+    const checked = pills.querySelector('input:checked');
+    return checked ? checked.value : '';
+  }
+  const inp = box.querySelector('[data-input]');
+  return inp ? inp.value.trim() : '';
+}
+
+// ปุ่มกดติ๊ก: กดปุ่มที่เลือกอยู่ซ้ำ = ยกเลิกการเลือก
+document.querySelectorAll('[data-pills] input[type=radio]').forEach(r => {
+  r.addEventListener('mousedown', () => { r._was = r.checked; });
+  r.addEventListener('click', () => {
+    if (r._was) r.checked = false;
+    r.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+});
+
+function applyConditions() {
+  for (const [key, cond] of Object.entries(SHOW_IF)) {
+    const box = fieldBox(key);
+    if (!box) continue;
+    let show = true;
+    for (const [dep, allowed] of Object.entries(cond)) {
+      const depBox = fieldBox(dep);
+      const v = depBox ? valueOf(depBox) : '';
+      if (!allowed.includes(Array.isArray(v) ? '' : v)) { show = false; break; }
+    }
+    box.classList.toggle('hidden', !show);
+  }
+}
+
+function collect() {
+  const data = {};
+  document.querySelectorAll('[data-field]').forEach(box => {
+    if (box.classList.contains('hidden')) return;   // ฟิลด์ที่ถูกซ่อนตามเงื่อนไข ไม่เก็บค่า
+    const v = valueOf(box);
+    if (Array.isArray(v) ? v.length : v !== '') data[box.dataset.key] = v;
+  });
+  return data;
+}
+
+async function saveDraft(silent=false) {
+  const form = document.getElementById('mainForm');
+  if (!form.reportValidity()) return false;
+  const res = await fetch('/case/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({case_id: caseId, data: collect()})
+  });
+  const d = await res.json();
+  if (!d.ok) { toast('❌ ' + (d.error || 'บันทึกไม่สำเร็จ')); return false; }
+  if (!caseId) { caseId = d.case_id; history.replaceState(null, '', '/case/' + caseId); }
+  document.getElementById('btnSubmit').disabled = false;
+  dirty = false;
+  if (d.warn) toast('⚠️ ' + d.warn, 5000); else if (!silent) toast('✅ บันทึกแล้ว (เคส #' + caseId + ')');
+  return true;
+}
+
+document.getElementById('btnSave').onclick = () => saveDraft();
+
+document.getElementById('btnSubmit').onclick = async () => {
+  if (!(await saveDraft(true))) return;
+  if (!confirm('โปรแกรมจะเปิด Edge ให้ login SSCC แล้วกรอกข้อมูลให้อัตโนมัติ\nตรวจทานบนเว็บก่อนกดบันทึกจริงเสมอ\n\nเริ่มเลยไหม?')) return;
+  const res = await fetch(`/case/${caseId}/submit`, {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})});
+  const d = await res.json();
+  if (!d.ok) { toast('❌ ' + d.error); return; }
+  document.getElementById('btnSubmit').disabled = true;
+  document.getElementById('fillLogCard').style.display = '';
+  pollStatus();
+};
+
+async function pollStatus() {
+  const res = await fetch(`/case/${caseId}/status`);
+  const d = await res.json();
+  if (d.ok) {
+    document.getElementById('fillLog').textContent = d.log;
+    if (d.status === 'submitted') {
+      const b = document.getElementById('statusBadge');
+      if (b) { b.className = 'badge submitted'; b.textContent = 'ส่ง SSCC แล้ว'; }
+      toast('🎉 ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย ' + (d.sscc_patient_id || ''));
+      return;
+    }
+  }
+  setTimeout(pollStatus, 3000);
+}
+
+document.getElementById('mainForm').addEventListener('input', () => { dirty = true; applyConditions(); });
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(() => { if (dirty && caseId) saveDraft(true); }, 45000);
+applyConditions();
+{% if case and case.status == 'draft' and case.fill_log %}
+document.getElementById('fillLogCard').style.display = '';
+document.getElementById('fillLog').textContent = {{ case.fill_log | tojson }};
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{
+  "_วิธีเพิ่มฟิลด์": "เพิ่ม object ใน fields แล้วรีเฟรชหน้าเว็บ — key ต้องขึ้นต้นด้วย cf_ และไม่ซ้ำ, type: text | number | select | date | time | textarea, ถ้า select ต้องมี options: [{v, t}], ตั้ง enabled: false เพื่อปิดชั่วคราว, ฟิลด์จะโผล่ท้ายฟอร์มหมวด 'ข้อมูลเพิ่มเติมของ รพ.' และใน Excel อัตโนมัติ",
+  "fields": [
+    {
+      "key": "cf_mrs_90d",
+      "label": "mRS ที่ 90 วัน (0-6)",
+      "type": "number",
+      "min": 0,
+      "max": 6,
+      "enabled": false
+    },
+    {
+      "key": "cf_phone",
+      "label": "เบอร์โทรติดตามผู้ป่วย/ญาติ",
+      "type": "text",
+      "enabled": false
+    }
+  ]
+}
