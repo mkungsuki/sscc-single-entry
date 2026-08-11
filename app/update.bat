@@ -42,15 +42,17 @@ set "SRC="
 for /d %%D in ("%WORK%\*") do if exist "%%D\app\server.py" set "SRC=%%D\app"
 if not defined SRC goto :dl_fail
 
-rem ไฟล์ .bat ใน zip ของ GitHub อาจเป็น LF — ต้องแปลงเป็น CRLF ก่อน ไม่งั้น cmd อ่านภาษาไทยเพี้ยน
-powershell -NoProfile -NonInteractive -Command "Get-ChildItem -Path '%SRC%' -Filter *.bat | ForEach-Object { [IO.File]::WriteAllLines($_.FullName, [IO.File]::ReadAllLines($_.FullName), (New-Object Text.UTF8Encoding($false))) }"
+call :find_python
+
+rem กันเหนียว: ไฟล์ .bat ต้องเป็น CRLF (ปกติ GitHub แปลงให้แล้วผ่าน .gitattributes)
+rem ห้ามใช้ powershell ตรงนี้ — เคยค้างไม่จบในคอนโซลที่เปิดผ่าน start (เจอจริง 2026-08-11)
+if defined PY %PY% -c "import glob; [open(f,'wb').write(open(f,'rb').read().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')) for f in glob.glob(r'%SRC%\*.bat')]"
 
 echo  [3/4] ติดตั้งไฟล์ใหม่ (ฐานข้อมูล / ไฟล์ Excel / การตั้งค่า / ฟิลด์ รพ. ไม่ถูกแตะ)...
 robocopy "%SRC%" "%APPDIR%." /e /xd data output __pycache__ mock tools /xf config.json custom_fields.json >nul
 if errorlevel 8 goto :copy_fail
 
 echo  [4/4] ติดตั้งไลบรารีที่อาจเพิ่มใหม่...
-call :find_python
 if defined PY %PY% -m pip install --disable-pip-version-check -q -r "%APPDIR%requirements.txt"
 
 echo.
