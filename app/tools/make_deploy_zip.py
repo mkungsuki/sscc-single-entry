@@ -28,7 +28,7 @@ INSTALL_TXT = """วิธีติดตั้ง SSCC Stroke — กรอก�
 ทำแค่ 2 ขั้น:
 
 1) แตกไฟล์ zip นี้ไว้ที่ไหนก็ได้ เช่น C:\\SSCC-app
-   (ถ้าเครื่องนี้เคยลงโปรแกรมนี้แล้ว แตกทับได้เลย — ฐานข้อมูลเดิมไม่หาย)
+   {overwrite_note}
 
 2) ดับเบิลคลิก setup.bat แล้วรอจนเสร็จ (2-5 นาที)
    โปรแกรมจะติดตั้ง Python + ไลบรารีให้เอง สร้างทางลัด "SSCC Stroke"
@@ -55,6 +55,14 @@ def main():
     name = f"SSCC_deploy_{stamp}{'_มีข้อมูล' if with_data else ''}.zip"
     dest = DEST_DIR / name
 
+    if with_data:
+        overwrite_note = ("⚠️ zip นี้มีฐานข้อมูลติดมาด้วย — ใช้กับ \"เครื่องใหม่\" เท่านั้น\n"
+                          "   ห้ามแตกทับเครื่องที่ใช้งานอยู่ เพราะฐานข้อมูลในเครื่องจะถูกทับหาย!\n"
+                          "   (จะอัปเดตโปรแกรมบนเครื่องที่ใช้อยู่ ให้ใช้ zip แบบไม่มีข้อมูลแทน)")
+    else:
+        overwrite_note = "(ถ้าเครื่องนี้เคยลงโปรแกรมนี้แล้ว แตกทับได้เลย — ฐานข้อมูลเดิมไม่หาย)"
+    install_txt = INSTALL_TXT.replace("{overwrite_note}", overwrite_note)
+
     files = [(APP / f, f) for f in INCLUDE_FILES]
     for d in INCLUDE_DIRS:
         for p in sorted((APP / d).rglob("*")):
@@ -78,7 +86,7 @@ def main():
         cfg = json.loads((APP / "config.json").read_text(encoding="utf-8"))
         cfg["master_dir"] = ""
         z.writestr("config.json", json.dumps(cfg, ensure_ascii=False, indent=2))
-        z.writestr("อ่านก่อน-วิธีติดตั้ง.txt", INSTALL_TXT)
+        z.writestr("อ่านก่อน-วิธีติดตั้ง.txt", install_txt)
 
     n = len(files) + 2
     print(f"สร้างแล้ว: {dest}  ({n} ไฟล์, {'มี' if with_data else 'ไม่มี'}ข้อมูลผู้ป่วย)")
