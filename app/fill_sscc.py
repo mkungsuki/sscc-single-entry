@@ -193,9 +193,18 @@ def fill_field(page, field, value, case_id, warnings):
             return False
         if ftype == "select" and not field.get("special") == "cascade_hospital":
             try:
-                el.select_option(value=str(value))
+                el.select_option(value=str(value), timeout=5000)
             except Exception:
-                el.select_option(label=str(value))
+                try:
+                    el.select_option(label=str(value), timeout=3000)
+                except Exception:
+                    # บาง select ถูก JS ของเว็บล้าง/สร้าง option ใหม่ตามฟิลด์อื่น (เช่น B5 → B6)
+                    # รอสั้นๆ ให้ option กลับมาแล้วลองอีกรอบ ก่อนยอมแพ้
+                    page.wait_for_timeout(1500)
+                    try:
+                        el.select_option(value=str(value), timeout=3000)
+                    except Exception:
+                        el.select_option(label=str(value), timeout=3000)
         elif field.get("special") == "cascade_hospital":
             # รอ AJAX โหลดรายชื่อ รพ. ตามจังหวัดก่อน แล้วเลือกจากชื่อ
             page.wait_for_function(
@@ -226,6 +235,73 @@ def fill_field(page, field, value, case_id, warnings):
     except Exception as e:
         warnings.append(f"{name}: {type(e).__name__} {str(e)[:80]}")
         return False
+
+
+def robot_banner(page, text, color="#b45309"):
+    """แถบบอกสถานะบนหน้าเว็บ SSCC — กันพยาบาลคลิก/ปิดหน้าต่างระหว่างโปรแกรมกำลังกรอก
+    (เป็นแค่ DOM ฝั่งแสดงผล ไม่มีชื่อฟิลด์ ไม่ติดไปกับการบันทึก; หายเองเมื่อเปลี่ยนหน้า)"""
+    try:
+        page.evaluate(
+            """([t, c]) => {
+                let b = document.getElementById('sscc_robot_banner');
+                if (!b) {
+                    b = document.createElement('div');
+                    b.id = 'sscc_robot_banner';
+                    document.body.prepend(b);
+                    document.body.style.paddingTop = '44px';
+                }
+                b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+                    'background:' + c + ';color:#fff;font:600 16px/1.4 sans-serif;' +
+                    'padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+                b.textContent = t;
+            }""", [text, color])
+    except Exception:
+        pass
+
+
+def fill_edit_page(page, base_url, pid, data, case_id):
+    """เปิดหน้าแก้ไขแล้วเติมทุกฟิลด์ — คืน ("ok"|"no_page"|"unstable", warnings)
+    ถ้าหน้าเว็บถูกเปลี่ยนไประหว่างกรอก (มีคนคลิก/เว็บเด้งออก) ค่าที่กรอกไว้จะหายทั้งหน้า
+    → เปิดหน้าแก้ไขใหม่แล้วกรอกซ้ำตั้งแต่ต้นให้เอง สูงสุด 3 รอบ (บทเรียนจากหน้างานจริง 2026-08)"""
+    for attempt in range(1, 4):
+        warnings = []
+        try:
+            page.goto(f"{base_url}/stroke_formedit.php?showdetail=&patient_id={pid}",
+                      wait_until="domcontentloaded")
+            page.wait_for_selector('[name="x_a2"]', timeout=30000)
+        except PWTimeout:
+            return "no_page", [f"เปิดหน้าแก้ไขเคสเลขที่ {pid} ไม่ได้ (เคสอาจถูกลบจากเว็บ)"]
+        robot_banner(page, "🤖 โปรแกรมกำลังกรอกข้อมูลอัตโนมัติ — อย่าเพิ่งคลิกหรือปิดหน้าต่างนี้")
+        filled = 0
+        current_section = None
+        disturbed = False
+        for f in SCHEMA["fields"]:
+            v = data.get(f["sscc"])
+            if v in (None, "", []):
+                continue
+            if "stroke_formedit" not in page.url:
+                disturbed = True
+                break
+            if f["section"] != current_section:
+                current_section = f["section"]
+                activate_tab(page, current_section)
+            if fill_field(page, f, v, case_id, warnings):
+                filled += 1
+        if not disturbed and "stroke_formedit" in page.url:
+            # รอบตรวจซ้ำ: บาง select ถูก JS ของเว็บรีเซ็ต (เช่น B5 First Dx รีเซ็ต B6 Final Dx)
+            refixed = verify_and_refill(page, data, case_id, warnings)
+            if refixed:
+                log(case_id, f"เติมซ้ำฟิลด์ที่ถูกรีเซ็ต: {', '.join(refixed)}")
+            if "stroke_formedit" in page.url:
+                activate_tab(page, "A")  # กลับแท็บแรกให้พยาบาลเริ่มตรวจ
+                note = f" (กรอกรอบที่ {attempt})" if attempt > 1 else ""
+                log(case_id, f"ขั้นที่ 3/3: เติมข้อมูลแล้ว {filled} ฟิลด์{note}")
+                for w in warnings:
+                    log(case_id, f"⚠️ {w}")
+                return "ok", warnings
+        log(case_id, f"⚠️ หน้าเว็บถูกเปลี่ยนไประหว่างกรอก (มีการคลิกในหน้าต่าง Edge?) — "
+                     f"เปิดหน้าแก้ไขใหม่แล้วกรอกซ้ำ (รอบ {attempt}/3)")
+    return "unstable", warnings
 
 
 def find_patient_id(page, base_url, hn, case_id):
@@ -260,63 +336,75 @@ def process_case(page, base_url, case, args, queue_mode):
     cid = case["id"]
     data = case["data"]
     hn = (data.get("x_a2") or "").strip()
+
+    # เคยสร้างบนเว็บไปแล้ว (จากรอบที่ส่งไม่จบ) → เปิดเคสเดิม ไม่สร้างซ้ำ
+    pid = str(case.get("sscc_patient_id") or "").strip() or None
+    reused = bool(pid)
+    if reused:
+        log(cid, f"เคสนี้เคยถูกสร้างบนเว็บแล้ว (เลขที่ผู้ป่วย {pid}) — เปิดกรอกต่อที่เคสเดิม ไม่สร้างซ้ำ")
+
+    fill_status = None
     warnings = []
+    for round_ in (1, 2):
+        if not pid:
+            # ---- ขั้นที่ 1: สร้างเคส (A1-A6) ----
+            open_add_form(page, base_url, cid)
+            robot_banner(page, "🤖 โปรแกรมกำลังสร้างเคสใหม่อัตโนมัติ — อย่าเพิ่งคลิกหรือปิดหน้าต่างนี้")
+            log(cid, "ขั้นที่ 1/3: สร้างเคสใหม่ (A1-A6)")
+            add_fields = [f for f in SCHEMA["fields"] if f.get("on_add_page")]
+            for f in add_fields:
+                v = data.get(f["sscc"])
+                if v not in (None, "", []):
+                    fill_field(page, f, v, cid, warnings)
+            # บันทึกสำเร็จ SSCC จะพาไปหน้า formedit ของเคสใหม่ทันที (มี patient_id ใน URL)
+            dest = submit_and_wait(page, base_url, cid, r"stroke_form(edit|list)\.php")
+            if not dest:
+                if queue_mode:
+                    log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ — ข้ามเคสนี้ไว้ส่งเดี่ยวทีหลัง")
+                    return "failed"
+                log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ (ดูข้อความ SSCC ด้านบน) — แก้บนหน้าเว็บแล้วบันทึกเองได้")
+                if not args.headless:
+                    page.wait_for_timeout(REVIEW_WAIT_MS)
+                sys.exit(3)
+            log(cid, "บันทึก A1-A6 แล้ว")
 
-    # ---- ขั้นที่ 1: สร้างเคส (A1-A6) ----
-    open_add_form(page, base_url, cid)
-    log(cid, "ขั้นที่ 1/3: สร้างเคสใหม่ (A1-A6)")
-    add_fields = [f for f in SCHEMA["fields"] if f.get("on_add_page")]
-    for f in add_fields:
-        v = data.get(f["sscc"])
-        if v not in (None, "", []):
-            fill_field(page, f, v, cid, warnings)
-    # บันทึกสำเร็จ SSCC จะพาไปหน้า formedit ของเคสใหม่ทันที (มี patient_id ใน URL)
-    dest = submit_and_wait(page, base_url, cid, r"stroke_form(edit|list)\.php")
-    if not dest:
-        if queue_mode:
-            log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ — ข้ามเคสนี้ไว้ส่งเดี่ยวทีหลัง")
-            return "failed"
-        log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ (ดูข้อความ SSCC ด้านบน) — แก้บนหน้าเว็บแล้วบันทึกเองได้")
-        if not args.headless:
-            page.wait_for_timeout(REVIEW_WAIT_MS)
-        sys.exit(3)
-    log(cid, "บันทึก A1-A6 แล้ว")
+            # ---- ขั้นที่ 2: หาเลขเคสที่เพิ่งสร้าง แล้วจำไว้ทันที (ส่งซ้ำจะไม่สร้างใหม่) ----
+            pid = find_patient_id(page, base_url, hn, cid)
+            if not pid:
+                if queue_mode:
+                    log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — ข้ามเคสนี้ (เคสอาจถูกสร้างบนเว็บแล้ว ตรวจหน้า list ที)")
+                    return "failed"
+                log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — เปิดหน้า list ให้ตรวจสอบเอง (เคสอาจถูกสร้างแล้ว)")
+                if not args.headless:
+                    page.wait_for_timeout(REVIEW_WAIT_MS)
+                sys.exit(3)
+            db.set_draft_pid(cid, pid)
+            log(cid, f"ขั้นที่ 2/3: ได้เลขที่ผู้ป่วย SSCC = {pid}")
 
-    # ---- ขั้นที่ 2: หาเลขเคสที่เพิ่งสร้าง ----
-    pid = find_patient_id(page, base_url, hn, cid)
-    if not pid:
-        if queue_mode:
-            log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — ข้ามเคสนี้ (เคสอาจถูกสร้างบนเว็บแล้ว ตรวจหน้า list ที)")
-            return "failed"
-        log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — เปิดหน้า list ให้ตรวจสอบเอง (เคสอาจถูกสร้างแล้ว)")
-        if not args.headless:
-            page.wait_for_timeout(REVIEW_WAIT_MS)
-        sys.exit(3)
-    log(cid, f"ขั้นที่ 2/3: ได้เลขที่ผู้ป่วย SSCC = {pid}")
-
-    # ---- ขั้นที่ 3: เติมข้อมูลทุกแท็บ ----
-    page.goto(f"{base_url}/stroke_formedit.php?showdetail=&patient_id={pid}")
-    page.wait_for_selector('[name="x_a2"]', timeout=30000)
-    filled = 0
-    current_section = None
-    for f in SCHEMA["fields"]:
-        v = data.get(f["sscc"])
-        if v in (None, "", []):
+        # ---- ขั้นที่ 3: เติมข้อมูลทุกแท็บ (เปิดใหม่+กรอกซ้ำเองถ้าหน้าถูกรบกวน) ----
+        fill_status, warnings = fill_edit_page(page, base_url, pid, data, cid)
+        if fill_status == "ok":
+            break
+        if fill_status == "no_page" and reused and round_ == 1:
+            # เคสเดิมบนเว็บหายไป (ถูกลบ?) — ล้างเลขที่จำไว้แล้วสร้างใหม่รอบเดียว
+            log(cid, f"⚠️ เปิดเคสเดิม (เลขที่ {pid}) ไม่ได้ — จะสร้างเคสใหม่บนเว็บแทน")
+            pid = None
+            db.set_draft_pid(cid, None)
+            reused = False
             continue
-        if f["section"] != current_section:
-            current_section = f["section"]
-            activate_tab(page, current_section)
-        if fill_field(page, f, v, cid, warnings):
-            filled += 1
-    # รอบตรวจซ้ำ: บาง select ถูก JS ของเว็บรีเซ็ต (เช่น B5 First Dx รีเซ็ต B6 Final Dx)
-    # ตรวจค่าจริงใน DOM แล้วเติมใหม่เฉพาะตัวที่เพี้ยน
-    refixed = verify_and_refill(page, data, cid, warnings)
-    if refixed:
-        log(cid, f"เติมซ้ำฟิลด์ที่ถูกรีเซ็ต: {', '.join(refixed)}")
-    activate_tab(page, "A")  # กลับแท็บแรกให้พยาบาลเริ่มตรวจ
-    log(cid, f"ขั้นที่ 3/3: เติมข้อมูลแล้ว {filled} ฟิลด์")
-    for w in warnings:
-        log(cid, f"⚠️ {w}")
+        break
+    if fill_status != "ok":
+        for w in warnings:
+            log(cid, f"⚠️ {w}")
+        msg = ("หน้าเว็บถูกรบกวนซ้ำหลายรอบระหว่างกรอก" if fill_status == "unstable"
+               else "เปิดหน้าแก้ไขบนเว็บไม่ได้")
+        if queue_mode:
+            log(cid, f"❌ {msg} — ข้ามเคสนี้ (เคสยังเป็นร่าง ส่งใหม่ได้ จะเปิดเคสเดิมไม่สร้างซ้ำ)")
+            return "failed"
+        log(cid, f"❌ {msg} — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ")
+        if not args.headless:
+            page.wait_for_timeout(REVIEW_WAIT_MS)
+        sys.exit(3)
 
     if args.auto_confirm:
         dest = submit_and_wait(page, base_url, cid, r"stroke_form(view|list)\.php")
@@ -330,6 +418,8 @@ def process_case(page, base_url, case, args, queue_mode):
         sys.exit(4)
 
     # ---- รอพยาบาลตรวจทานและกดบันทึกเอง ----
+    robot_banner(page, f"🔍 กรอกเสร็จแล้ว — ตรวจทานทุกแท็บ แล้วกดปุ่ม [บันทึก] ท้ายฟอร์ม (HN {hn})",
+                 color="#1a7f37")
     log(cid, "🔍 โปรดตรวจทานทุกแท็บบนหน้าเว็บ แล้วกดปุ่ม [บันทึก] ที่ท้ายฟอร์ม")
     posted = {"flag": False}
 
@@ -342,7 +432,7 @@ def process_case(page, base_url, case, args, queue_mode):
         # บันทึกสำเร็จบนหน้าแก้ไข -> เด้งไป stroke_formview.php (ยืนยันจาก pilot จริง 2026-07-13)
         page.wait_for_url(re.compile(r"stroke_form(view|list)\.php"), timeout=REVIEW_WAIT_MS)
     except PWTimeout:
-        log(cid, "หมดเวลารอตรวจทาน (60 นาที) — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ")
+        log(cid, "หมดเวลารอตรวจทาน (60 นาที) — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ (จะเปิดเคสเดิมบนเว็บ ไม่สร้างซ้ำ)")
         return "timeout"
     finally:
         try:
@@ -353,7 +443,8 @@ def process_case(page, base_url, case, args, queue_mode):
         db.set_submitted(cid, pid, case.get("fill_log") or "")
         log(cid, f"✅ ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย {pid}")
         return "submitted"
-    log(cid, "ออกจากหน้าแก้ไขโดยไม่ได้บันทึก — เคสยังเป็นร่าง")
+    log(cid, "ออกจากหน้าแก้ไขโดยไม่ได้กดบันทึก — เคสยังเป็นร่าง ข้อมูลในโปรแกรมอยู่ครบ "
+             "(ส่งใหม่ได้ทุกเมื่อ จะเปิดเคสเดิมบนเว็บ ไม่สร้างซ้ำ)")
     return "draft"
 
 
@@ -414,6 +505,8 @@ def main():
                 page = context.pages[0] if context.pages else context.new_page()
             # ยอมรับ dialog อัตโนมัติ (ค่าเริ่มต้นของ Playwright คือกด "ยกเลิก" ซึ่งจะยกเลิกการบันทึก)
             page.on("dialog", lambda d: d.accept())
+            # ฟิลด์ที่มีปัญหาไม่ควรค้างนาน 30 วิ (ค่าเริ่มต้น Playwright) — 10 วิพอ แล้วไปตัวถัดไป
+            page.set_default_timeout(10000)
             log(ids[0], "เปิดเบราว์เซอร์แล้ว")
             try:
                 for pos, case in enumerate(cases, 1):

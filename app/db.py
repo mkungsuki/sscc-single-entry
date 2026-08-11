@@ -86,6 +86,12 @@ def status_counts(q=""):
         return {r[0]: r[1] for r in c.execute(sql, args).fetchall()}
 
 
+def set_draft_pid(case_id, sscc_patient_id):
+    """จำเลขเคสฝั่ง SSCC ทันทีที่สร้างบนเว็บสำเร็จ (ยังเป็นร่าง) — ส่งซ้ำจะได้เปิดเคสเดิม ไม่สร้างซ้ำ"""
+    with _conn() as c:
+        c.execute("UPDATE cases SET sscc_patient_id=? WHERE id=?", (sscc_patient_id, case_id))
+
+
 def set_submitted(case_id, sscc_patient_id, log=""):
     now = datetime.now().isoformat(timespec="seconds")
     with _conn() as c:
