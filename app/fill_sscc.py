@@ -342,6 +342,9 @@ def process_case(page, base_url, case, args, queue_mode):
     reused = bool(pid)
     if reused:
         log(cid, f"เคสนี้เคยถูกสร้างบนเว็บแล้ว (เลขที่ผู้ป่วย {pid}) — เปิดกรอกต่อที่เคสเดิม ไม่สร้างซ้ำ")
+        if case.get("status") == "submitted":
+            log(cid, "🔧 โหมดเติมให้ครบ: โปรแกรมจะเติมทุกช่องตามข้อมูลในโปรแกรมทับของเดิม "
+                     "— ตรวจทานแล้วกด [บันทึก] อีกครั้งเพื่อให้เว็บได้ข้อมูลครบ")
 
     fill_status = None
     warnings = []

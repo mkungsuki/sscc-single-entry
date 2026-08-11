@@ -17,7 +17,7 @@ DEST_DIR = APP.parent  # C:\SSCC
 
 # ไฟล์/โฟลเดอร์ที่เครื่องพยาบาลต้องใช้ — ไม่รวม data/ (session+ฐานข้อมูล), output/, mock/, __pycache__
 INCLUDE_FILES = ["server.py", "fill_sscc.py", "db.py", "excel_export.py", "import_export.py",
-                 "runlock.py", "setup.bat", "start.bat", "requirements.txt", "README.md"]
+                 "runlock.py", "setup.bat", "start.bat", "update.bat", "requirements.txt", "README.md"]
 INCLUDE_DIRS = ["schema", "templates"]
 
 INSTALL_TXT = """วิธีติดตั้ง SSCC Stroke — กรอกครั้งเดียว (เครื่องใหม่)
@@ -35,6 +35,7 @@ INSTALL_TXT = """วิธีติดตั้ง SSCC Stroke — กรอก�
    บนหน้าจอ แล้วเปิดโปรแกรมขึ้นมาเลย
 
 วันต่อไป: ดับเบิลคลิกทางลัด "SSCC Stroke" บนหน้าจอ — วิธีใช้ประจำวันอ่านใน README.md
+อัปเดตโปรแกรมครั้งถัดไป: ดับเบิลคลิก update.bat (โหลดเวอร์ชันล่าสุดจาก GitHub ให้เอง)
 
 ถ้า setup.bat ติดตั้ง Python อัตโนมัติไม่ได้ มันจะเปิดหน้าเว็บ python.org ให้
 ติดตั้งเองโดยติ๊ก "Add python.exe to PATH" แล้วดับเบิลคลิก setup.bat ซ้ำอีกครั้ง

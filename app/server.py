@@ -117,9 +117,10 @@ def case_submit(case_id):
     case = db.get_case(case_id)
     if not case:
         return jsonify(ok=False, error="ไม่พบเคส"), 404
-    if case["status"] != "draft":
-        return jsonify(ok=False, error="ส่งได้เฉพาะเคสสถานะ 'ร่าง' — เคสที่ส่งแล้ว/นำเข้า มีบน SSCC อยู่แล้ว "
-                                        "(ส่งซ้ำจะกลายเป็นเคสซ้ำบนเว็บ)"), 400
+    if case["status"] == "imported":
+        return jsonify(ok=False, error="เคสนำเข้า = ข้อมูลมาจากเว็บอยู่แล้ว — ถ้าจะแก้ ให้แก้บนเว็บโดยตรง"), 400
+    if case["status"] == "submitted" and not case.get("sscc_patient_id"):
+        return jsonify(ok=False, error="เคสนี้ส่งแล้วแต่ไม่มีเลขที่ผู้ป่วยบันทึกไว้ — ตรวจ/แก้บนเว็บโดยตรง"), 400
     if runlock.read():
         return jsonify(ok=False, error="มีการส่งเข้า SSCC ทำงานค้างอยู่ — ทำเคสในหน้าต่าง Edge ให้เสร็จก่อน"), 409
     base_url = request.get_json(force=True).get("base_url") or CONFIG["sscc_base_url"]
@@ -169,7 +170,8 @@ def case_status(case_id):
     if not case:
         return jsonify(ok=False), 404
     return jsonify(ok=True, status=case["status"],
-                   sscc_patient_id=case.get("sscc_patient_id"), log=case.get("fill_log") or "")
+                   sscc_patient_id=case.get("sscc_patient_id"),
+                   submitted_at=case.get("submitted_at"), log=case.get("fill_log") or "")
 
 
 @app.route("/export")

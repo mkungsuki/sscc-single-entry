@@ -5,7 +5,9 @@
   {% if case %}<span class="badge {{ case.status }}" id="statusBadge">
     {{ {'draft':'ร่าง','submitted':'ส่ง SSCC แล้ว','imported':'นำเข้า'}[case.status] }}</span>{% endif %}
   <button class="btn" id="btnSave">💾 บันทึกร่าง</button>
-  <button class="btn btn-success" id="btnSubmit" {% if not case or case.status == 'submitted' %}disabled{% endif %}>🚀 ส่งเข้า SSCC</button>
+  <button class="btn btn-success" id="btnSubmit" {% if not case or case.status == 'imported' %}disabled{% endif %}>
+    {%- if case and case.status == 'submitted' %}🔧 ส่งซ้ำ (เติมบนเว็บให้ครบ){% else %}🚀 ส่งเข้า SSCC{% endif -%}
+  </button>
 {% endblock %}
 {% block content %}
 
@@ -89,6 +91,9 @@
 <script>
 const SHOW_IF = {{ show_if_map | tojson }};
 let caseId = {{ case.id if case else 'null' }};
+// โหมดซ่อม: เคสที่ส่งแล้ว กดส่งซ้ำเพื่อเติมข้อมูลบนเว็บให้ครบ (เปิดเคสเดิม ไม่สร้างซ้ำ)
+const isRepair = {{ 'true' if case and case.status == 'submitted' else 'false' }};
+const initialSubmittedAt = {{ (case.submitted_at if case else none) | tojson }};
 let dirty = false;
 
 function fieldBox(key) { return document.querySelector(`[data-field][data-key="${CSS.escape(key)}"]`); }
@@ -159,7 +164,10 @@ document.getElementById('btnSave').onclick = () => saveDraft();
 
 document.getElementById('btnSubmit').onclick = async () => {
   if (!(await saveDraft(true))) return;
-  if (!confirm('โปรแกรมจะเปิด Edge ให้ login SSCC แล้วกรอกข้อมูลให้อัตโนมัติ\nตรวจทานบนเว็บก่อนกดบันทึกจริงเสมอ\n\nเริ่มเลยไหม?')) return;
+  const msg = isRepair
+    ? 'โปรแกรมจะเปิด "เคสเดิม" บนเว็บ SSCC แล้วเติมทุกช่องตามข้อมูลในโปรแกรม (ไม่สร้างเคสซ้ำ)\nตรวจทานแล้วกด [บันทึก] บนเว็บอีกครั้ง\n\nเริ่มเลยไหม?'
+    : 'โปรแกรมจะเปิด Edge ให้ login SSCC แล้วกรอกข้อมูลให้อัตโนมัติ\nตรวจทานบนเว็บก่อนกดบันทึกจริงเสมอ\n\nเริ่มเลยไหม?';
+  if (!confirm(msg)) return;
   const res = await fetch(`/case/${caseId}/submit`, {method: 'POST',
     headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})});
   const d = await res.json();
@@ -174,7 +182,13 @@ async function pollStatus() {
   const d = await res.json();
   if (d.ok) {
     document.getElementById('fillLog').textContent = d.log;
-    if (d.status === 'submitted') {
+    if (isRepair) {
+      // ซ่อมสำเร็จ = เวลาส่งถูกประทับใหม่ (สถานะเป็น submitted อยู่แล้ว ดูสถานะอย่างเดียวไม่พอ)
+      if (d.submitted_at && d.submitted_at !== initialSubmittedAt) {
+        toast('🔧 เติมข้อมูลบนเว็บครบแล้ว — เลขที่ผู้ป่วย ' + (d.sscc_patient_id || ''));
+        return;
+      }
+    } else if (d.status === 'submitted') {
       const b = document.getElementById('statusBadge');
       if (b) { b.className = 'badge submitted'; b.textContent = 'ส่ง SSCC แล้ว'; }
       toast('🎉 ส่งเข้า SSCC สำเร็จ — เลขที่ผู้ป่วย ' + (d.sscc_patient_id || ''));
