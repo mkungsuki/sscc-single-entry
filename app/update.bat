@@ -3,13 +3,20 @@ chcp 65001 >nul
 title SSCC Stroke - อัปเดตโปรแกรม
 
 rem สองจังหวะ: ไฟล์นี้จะถูกอัปเดตทับด้วย เลยก๊อปตัวเองไปรันจาก TEMP ก่อน
+rem ส่งที่อยู่โฟลเดอร์ผ่าน env var — ส่งเป็น argument ที่มี quote สองชุดแล้ว cmd ตัด quote เพี้ยน (เจอจริง)
 if /i "%~1" neq "GO" (
   copy /y "%~f0" "%TEMP%\sscc_update_run.bat" >nul
-  start "SSCC Update" "%TEMP%\sscc_update_run.bat" GO "%~dp0"
+  set "SSCC_APPDIR=%~dp0"
+  start "SSCC Update" "%TEMP%\sscc_update_run.bat" GO
   exit /b 0
 )
 
-set "APPDIR=%~2"
+set "APPDIR=%SSCC_APPDIR%"
+if not defined APPDIR (
+  echo กรุณาดับเบิลคลิก update.bat ในโฟลเดอร์โปรแกรม ไม่ใช่ไฟล์สำเนาใน TEMP
+  pause
+  exit /b 1
+)
 set "REPO_ZIP=https://github.com/mkungsuki/sscc-single-entry/archive/refs/heads/main.zip"
 if defined SSCC_UPDATE_ZIP set "REPO_ZIP=%SSCC_UPDATE_ZIP%"
 set "WORK=%TEMP%\sscc_update_work"
