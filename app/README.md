@@ -93,7 +93,8 @@ python import_export.py C:\path\to\stroke_form.csv
 | `checks.py` | ตรวจเวลาขัดกัน/คุณภาพข้อมูล (แถบ ⏱ ในฟอร์ม, หน้า "ข้อสงสัยเวลา", ด่านก่อนส่ง) |
 | `fill_sscc.py` | หุ่นยนต์กรอกเว็บ SSCC (Playwright + Edge) |
 | `schema/sscc_fields.json` | โครงสร้างฟอร์ม SSCC ทั้ง 136 ฟิลด์ (แกะจากเว็บจริง 2026-07-13) |
-| `schema/custom_fields.json` | ฟิลด์เพิ่มเติมของ รพ. — แก้ไฟล์นี้เพื่อเพิ่มฟิลด์ |
+| `schema/custom_fields.json` | ฟิลด์เพิ่มเติมของ รพ. — แก้ไฟล์นี้เพื่อเพิ่มฟิลด์ (update.bat ไม่ทับไฟล์นี้) |
+| `schema/custom_fields_defaults.json` | ฟิลด์ รพ. ตั้งต้นที่มากับเวอร์ชันใหม่ — โปรแกรมเติมเข้า custom_fields.json ให้เองตอนเปิด (ไม่ทับของที่ รพ. แก้/ลบ) |
 | `data/sscc.db` | ฐานข้อมูลเคสทั้งหมด (SQLite) |
 | `excel_export.py` / `import_export.py` | สร้าง Excel master / นำเข้าข้อมูลเก่า |
 | `runlock.py` | กันกดส่ง SSCC ซ้อนกัน (Edge โปรไฟล์เดียว เปิดพร้อมกันสองตัวไม่ได้) |

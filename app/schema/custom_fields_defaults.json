@@ -1,0 +1,192 @@
+{
+  "_หมายเหตุ": "ฟิลด์ รพ. ที่โปรแกรมเตรียมให้ (ติดมากับการอัปเดต) — ตอนเปิดโปรแกรม ฟิลด์ที่ยังไม่มีใน custom_fields.json จะถูกเติมเข้าไปเอง ฟิลด์ที่ รพ. แก้/ปิด/ลบไปแล้วจะไม่ถูกทับ (custom_fields.json ไม่ถูกแตะโดย update.bat) — แก้ไฟล์นี้เฉพาะตอนเพิ่มฟิลด์ตั้งต้นใหม่ในเวอร์ชันถัดไป",
+  "fields": [
+    {
+      "key": "cf_rtpa_event",
+      "label": "ลักษณะเคส rtPA",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "arrival",
+          "t": "มาถึง รพ.ด้วยอาการนี้"
+        },
+        {
+          "v": "inhosp",
+          "t": "อาการเกิด/progress ระหว่างอยู่ใน รพ. (in-hospital)"
+        }
+      ],
+      "show_if": {
+        "x_b16": [
+          "2"
+        ]
+      },
+      "hint": "เคส in-hospital: DTN ของ รพ. จะนับจากเวลาที่พบอาการ (ตามคำแนะนำจังหวัด) แต่ยังเก็บ door จริงไว้คู่กัน — ไม่ทับกัน"
+    },
+    {
+      "key": "cf_rtpa_recog_date",
+      "label": "วันที่พบอาการ (in-hospital)",
+      "type": "date",
+      "enabled": true,
+      "show_if": {
+        "cf_rtpa_event": [
+          "inhosp"
+        ]
+      }
+    },
+    {
+      "key": "cf_rtpa_recog_hhmm",
+      "label": "เวลาที่พบอาการ (in-hospital)",
+      "type": "time",
+      "enabled": true,
+      "show_if": {
+        "cf_rtpa_event": [
+          "inhosp"
+        ]
+      },
+      "hint": "เวลาที่พยาบาล/แพทย์พบว่าอาการเปลี่ยน (recognition time) ไม่ใช่เวลาที่รายงานแพทย์"
+    },
+    {
+      "key": "cf_dtn_delay",
+      "label": "เหตุที่ door-to-needle นานกว่า 45 นาที (เลือกได้หลายข้อ)",
+      "type": "checkbox-group",
+      "enabled": true,
+      "options": [
+        {
+          "v": "ct_wait",
+          "t": "รอ CT / คิว CT / เครื่องไม่ว่าง"
+        },
+        {
+          "v": "bp",
+          "t": "คุมความดันก่อนให้ยา"
+        },
+        {
+          "v": "lab",
+          "t": "รอผล lab / น้ำตาล / INR"
+        },
+        {
+          "v": "consent",
+          "t": "รอ consent ญาติ / ตัดสินใจ"
+        },
+        {
+          "v": "onset_unclear",
+          "t": "เวลาเริ่มอาการไม่ชัด ต้องซักประวัติเพิ่ม"
+        },
+        {
+          "v": "clinical",
+          "t": "ประเมิน NIHSS / อาการก้ำกึ่ง ต้องปรึกษา"
+        },
+        {
+          "v": "progress",
+          "t": "อาการเบา/ดีขึ้นตอนแรก แล้ว progress ระหว่างรอ"
+        },
+        {
+          "v": "triage",
+          "t": "ไม่ได้ activate fast track ตั้งแต่ triage"
+        },
+        {
+          "v": "staff",
+          "t": "บุคลากร/ระบบไม่พร้อม (นอกเวลา, แพทย์ติดเคสอื่น)"
+        },
+        {
+          "v": "other",
+          "t": "อื่นๆ (ระบุ)"
+        }
+      ],
+      "show_if": {
+        "x_b16": [
+          "2"
+        ]
+      },
+      "hint": "กรอกเมื่อ DTN >45 นาที — ใช้ทำ Pareto รายไตรมาสว่าอะไรถ่วงบ่อยสุด ไม่ใช้ตามหาว่าใครช้า"
+    },
+    {
+      "key": "cf_dtn_delay_note",
+      "label": "รายละเอียดเพิ่มเติมเรื่องความล่าช้า",
+      "type": "text",
+      "enabled": true,
+      "show_if": {
+        "x_b16": [
+          "2"
+        ]
+      }
+    },
+    {
+      "key": "cf_af_no_oac",
+      "label": "มี AF แต่ไม่ได้ anticoagulant ตอนจำหน่าย เพราะ",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "bleed",
+          "t": "มีเลือดออก / hemorrhagic transformation"
+        },
+        {
+          "v": "large_infarct",
+          "t": "infarct ใหญ่ — วางแผนเริ่มภายหลัง (นัดมาเริ่ม)"
+        },
+        {
+          "v": "fall_frail",
+          "t": "เสี่ยงล้ม / เปราะบาง / palliative"
+        },
+        {
+          "v": "refuse",
+          "t": "ผู้ป่วย/ญาติปฏิเสธ"
+        },
+        {
+          "v": "refer_start",
+          "t": "ส่งต่อให้ รพ.ปลายทาง/คลินิก warfarin เริ่ม"
+        },
+        {
+          "v": "af_unconfirmed",
+          "t": "AF ยังไม่ยืนยัน (รอ Holter/echo)"
+        },
+        {
+          "v": "missed",
+          "t": "ไม่มีข้อห้าม — หลุด/ไม่ได้ประเมิน"
+        },
+        {
+          "v": "other",
+          "t": "อื่นๆ (ระบุ)"
+        }
+      ],
+      "show_if": {
+        "x_a7_4": [
+          "2"
+        ],
+        "x_c18": [
+          "1"
+        ]
+      },
+      "hint": "SSCC ไม่มีช่องนี้เมื่อจ่ายยาต้านเกล็ดเลือด — เก็บไว้เพื่อแยก 'มีข้อห้ามจริง' ออกจาก 'หลุด'"
+    },
+    {
+      "key": "cf_af_no_oac_note",
+      "label": "รายละเอียดเพิ่มเติม (AF)",
+      "type": "text",
+      "enabled": true,
+      "show_if": {
+        "x_a7_4": [
+          "2"
+        ],
+        "x_c18": [
+          "1"
+        ]
+      }
+    },
+    {
+      "key": "cf_mrs_90d",
+      "label": "mRS ที่ 90 วัน (0-6)",
+      "type": "number",
+      "enabled": false,
+      "min": 0,
+      "max": 6
+    },
+    {
+      "key": "cf_phone",
+      "label": "เบอร์โทรติดตามผู้ป่วย/ญาติ",
+      "type": "text",
+      "enabled": false
+    }
+  ]
+}

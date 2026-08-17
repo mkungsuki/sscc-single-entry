@@ -20,6 +20,7 @@ import runlock
 APP_DIR = Path(__file__).parent
 CONFIG = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
 CUSTOM_PATH = APP_DIR / "schema" / "custom_fields.json"
+DEFAULTS_PATH = APP_DIR / "schema" / "custom_fields_defaults.json"
 CF_TYPES = {"text", "number", "select", "checkbox-group", "date", "time", "textarea"}
 
 app = Flask(__name__)
@@ -29,6 +30,38 @@ def read_custom_raw():
     if CUSTOM_PATH.exists():
         return json.loads(CUSTOM_PATH.read_text(encoding="utf-8"))
     return {"fields": []}
+
+
+def merge_default_custom_fields():
+    """เติมฟิลด์ รพ. ตั้งต้นที่มากับเวอร์ชันใหม่ (schema/custom_fields_defaults.json) เข้า custom_fields.json
+    — update.bat ไม่แตะ custom_fields.json (กันทับของที่ รพ. แก้เอง) ฟิลด์ใหม่จึงต้องเติมตอนเปิดโปรแกรม
+    กติกา: เติมเฉพาะ key ที่ไม่เคยเห็น; ฟิลด์ที่ รพ. แก้/ปิด/ลบไปแล้วไม่ถูกทับและไม่โผล่กลับมา"""
+    if not DEFAULTS_PATH.exists():
+        return
+    try:
+        defaults = json.loads(DEFAULTS_PATH.read_text(encoding="utf-8")).get("fields", [])
+    except Exception:
+        return
+    raw = read_custom_raw()
+    fields = raw.get("fields", [])
+    have = {f.get("key") for f in fields}
+    seen = set(raw.get("_defaults_seen") or [])
+    changed = False
+    for f in defaults:
+        k = f.get("key")
+        if not k:
+            continue
+        if k not in have and k not in seen:
+            fields.append(dict(f))
+            have.add(k)
+            changed = True
+        if k not in seen:
+            seen.add(k)
+            changed = True
+    if changed:
+        raw["fields"] = fields
+        raw["_defaults_seen"] = sorted(seen)
+        CUSTOM_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_schema():
@@ -358,6 +391,7 @@ def custom_fields_save():
 
 
 if __name__ == "__main__":
+    merge_default_custom_fields()
     port = CONFIG.get("port", 8547)
     print(f"* เปิดใช้งานที่ http://127.0.0.1:{port}")
     app.run(host="127.0.0.1", port=port, debug=False)
