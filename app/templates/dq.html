@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}ข้อสงสัยคุณภาพข้อมูล — SSCC{% endblock %}
+{% block headerbtn %}<a class="btn" href="/">← หน้ารวม</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>🔎 เคสที่เวลาขัดกัน / ควรเช็ค — {{ total }} เคส (ยังไม่รับทราบ {{ n_unacked }})</h2>
+  <p style="font-size:13.5px;color:#666;margin-top:0">
+    ธงพวกนี้เกิดจากการเทียบเวลาในเคสเดียวกัน (เริ่มอาการ ≤ ถึง รพ. ≤ CT ≤ rtPA ≤ รับไว้ ≤ จำหน่าย)
+    ส่วนใหญ่คือพิมพ์วัน/เดือนผิด หรือลง CT ซ้ำ 24 ชม. แทน CT แรก — แก้ที่ตัวเคสแล้วธงจะหายเอง
+    ถ้าข้อมูลถูกต้องจริง เปิดเคสแล้วกด "ส่ง" หรือบันทึก โปรแกรมจะให้กดรับทราบพร้อมเหตุผล
+    <br>เคสสถานะ "นำเข้า" แก้ในโปรแกรมไม่ได้ (ต้องแก้บนเว็บ SSCC) — ลิสต์นี้ใช้เป็นรายการไล่แก้บนเว็บได้</p>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px;margin-bottom:10px">
+    {% for code, n in counts|dictsort(by='value', reverse=true) %}
+      <span style="background:#eef3f7;border:1px solid var(--border);border-radius:12px;padding:2px 10px">{{ code }} × {{ n }}</span>
+    {% endfor %}
+  </div>
+  <table>
+    <tr><th style="width:70px">เคส</th><th style="width:100px">HN</th><th style="width:90px">สถานะ</th>
+        <th style="width:100px">วันที่ถึง รพ.</th><th style="width:170px">นาทีที่คำนวณได้</th><th>ข้อสงสัย</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td><a href="/case/{{ r.id }}">#{{ r.id }}</a></td>
+      <td>{{ r.hn or '-' }}</td>
+      <td><span class="badge {{ r.status }}">{{ {'draft':'ร่าง','submitted':'ส่งแล้ว','imported':'นำเข้า'}[r.status] }}</span></td>
+      <td>{{ r.door }}</td>
+      <td style="font-size:12.5px">
+        {% if r.derived.onset_to_door is defined %}เริ่ม→ถึง {{ r.derived.onset_to_door }}<br>{% endif %}
+        {% if r.derived.door_to_ct is defined %}ถึง→CT {{ r.derived.door_to_ct }}<br>{% endif %}
+        {% if r.derived.door_to_needle is defined %}DTN {{ r.derived.door_to_needle }}{% endif %}
+        {% if r.derived.recog_to_needle is defined %}<br>พบอาการ→rtPA {{ r.derived.recog_to_needle }}{% endif %}
+      </td>
+      <td style="font-size:13px">
+        {% for f in r.flags %}
+          <div style="color:{{ '#b33' if f.level == 'high' else '#8a5a00' }}">{{ '🔴' if f.level == 'high' else '🟡' }} {{ f.msg }}</div>
+        {% endfor %}
+        {% if r.ack_reason and not r.unacked %}<div style="color:#1e8e4e">✔ รับทราบแล้ว: {{ r.ack_reason }}</div>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {% if not rows %}<tr><td colspan="6" style="text-align:center;color:#888;padding:22px">ไม่มีเคสที่ติดธง 🎉</td></tr>{% endif %}
+  </table>
+</div>
+{% endblock %}

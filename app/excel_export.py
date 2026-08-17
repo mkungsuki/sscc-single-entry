@@ -49,13 +49,14 @@ def export_master():
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "SSCC_master.xlsx"
 
-    meta_cols = ["case_id", "สถานะ", "เลขที่ผู้ป่วย SSCC", "วันที่บันทึก", "วันที่ส่ง SSCC"]
+    meta_cols = ["case_id", "สถานะ", "เลขที่ผู้ป่วย SSCC", "วันที่บันทึก", "วันที่ส่ง SSCC",
+                 "ธงคุณภาพข้อมูล", "รับทราบเหตุผล"]
 
     cases = db.all_cases_full()
     used_keys = {k for c in cases for k in c["data"]}
     fields = [f for f in SCHEMA["fields"]] + _custom_fields(used_keys)
     known = {f.get("sscc") or f["key"] for f in fields}
-    extra_keys = sorted({k for c in cases for k in c["data"] if k not in known})
+    extra_keys = sorted({k for c in cases for k in c["data"] if k not in known and not k.startswith("_")})
 
     wb = Workbook()
     ws = wb.active
@@ -73,8 +74,10 @@ def export_master():
 
     for case in cases:
         d = case["data"]
+        dq = d.get("_dq") or {}
         meta = [case["id"], case["status"], case.get("sscc_patient_id") or "",
-                case.get("created_at") or "", case.get("submitted_at") or ""]
+                case.get("created_at") or "", case.get("submitted_at") or "",
+                ", ".join(dq.get("flags") or []), (dq.get("ack") or {}).get("reason") or ""]
         raw_row, readable_row = list(meta), list(meta)
         for f in fields:
             key = f.get("sscc") or f["key"]

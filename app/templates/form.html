@@ -81,6 +81,34 @@
 {% if ns.sec %}</div>{% endif %}
 </form>
 
+<!-- แถบเวลาที่คำนวณได้ + ธงคุณภาพข้อมูล (ตรวจสดระหว่างกรอก) -->
+<div id="dqBar" style="display:none;position:fixed;left:14px;bottom:14px;max-width:440px;z-index:40;
+     background:#fff;border:1px solid var(--border);border-left:5px solid var(--blue);border-radius:8px;
+     font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.12)">
+  <div id="dqPill" onclick="toggleDq()" style="cursor:pointer;padding:6px 12px;font-size:13px;white-space:nowrap;user-select:none"></div>
+  <div id="dqBody" style="display:none;padding:0 14px 10px">
+    <div id="dqDerived" style="color:#333"></div>
+    <div id="dqFlags" style="margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- กล่องรับทราบข้อสงสัยก่อนส่ง -->
+<div id="ackModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:90;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:20px 22px;max-width:640px;width:94%;max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 10px;font-size:16px;color:var(--warn)">⚠️ ข้อมูลเวลาบางส่วนขัดกัน — เช็คก่อนส่ง</h2>
+    <p style="font-size:13.5px;color:#555;margin:0 0 10px">
+      ส่วนใหญ่เกิดจากพิมพ์วัน/เดือนผิด หรือลงเวลา CT ซ้ำแทน CT แรก ถ้าข้อมูลถูกต้องจริง (เคสแปลกมีได้)
+      ให้กดรับทราบพร้อมเหตุผลสั้นๆ — เหตุผลเก็บไว้กับเคสเพื่อตรวจย้อนหลัง ไม่ได้ส่งเข้า SSCC</p>
+    <ul id="ackList" style="margin:0 0 12px;padding-left:20px;font-size:14px;line-height:1.5"></ul>
+    <label style="font-size:13.5px">เหตุผลที่ยืนยันว่าข้อมูลถูกต้อง <span class="req">*</span></label>
+    <input id="ackReason" placeholder="เช่น ตรวจกับชาร์ตแล้ว ผู้ป่วยมาถึงจริงเวลานี้ / เคส progression ระบุเวลาที่พบอาการแล้ว" style="max-width:none;margin:4px 0 12px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeAck()">← กลับไปแก้ข้อมูล</button>
+      <button class="btn btn-primary" onclick="confirmAck()">รับทราบและบันทึกเหตุผล</button>
+    </div>
+  </div>
+</div>
+
 <div class="card" id="fillLogCard" style="display:none">
   <h2>สถานะการส่งเข้า SSCC</h2>
   <pre id="fillLog" style="white-space:pre-wrap;font-size:13px;margin:0"></pre>
@@ -144,26 +172,106 @@ function collect() {
   return data;
 }
 
-async function saveDraft(silent=false) {
+let pendingWarnings = [];   // ธงทุกระดับที่ยังไม่ได้รับทราบ (โชว์ในแถบ)
+let blockingWarnings = [];  // เฉพาะธงแดง — ตัวเดียวที่กั้นการส่ง SSCC (ธงเหลืองไม่กั้น)
+let dqOpen = false, dqAutoOpened = false;
+function toggleDq(force) { dqOpen = force === undefined ? !dqOpen : force; document.getElementById('dqBody').style.display = dqOpen ? '' : 'none'; }
+
+async function saveDraft(silent=false, ack=null) {
   const form = document.getElementById('mainForm');
   if (!form.reportValidity()) return false;
   const res = await fetch('/case/save', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({case_id: caseId, data: collect()})
+    body: JSON.stringify({case_id: caseId, data: collect(), ack})
   });
   const d = await res.json();
   if (!d.ok) { toast('❌ ' + (d.error || 'บันทึกไม่สำเร็จ')); return false; }
   if (!caseId) { caseId = d.case_id; history.replaceState(null, '', '/case/' + caseId); }
   document.getElementById('btnSubmit').disabled = false;
   dirty = false;
-  if (d.warn) toast('⚠️ ' + d.warn, 5000); else if (!silent) toast('✅ บันทึกแล้ว (เคส #' + caseId + ')');
+  pendingWarnings = d.warnings || [];
+  blockingWarnings = d.blocking || [];
+  renderDq({flags: pendingWarnings, derived: d.derived || {}}, d.acked);
+  if (d.warn) toast('⚠️ ' + d.warn, 5000);
+  else if (!silent) toast(blockingWarnings.length
+    ? `💾 บันทึกแล้ว — มี ${blockingWarnings.length} จุดที่เวลาขัดกันชัดเจน (ดูมุมซ้ายล่าง) ต้องแก้/รับทราบก่อนส่ง`
+    : '✅ บันทึกแล้ว (เคส #' + caseId + ')', blockingWarnings.length ? 4500 : 2600);
   return true;
+}
+
+// ---- ตรวจสด: นาทีที่คำนวณได้ + ธง (ไม่บันทึก) ----
+const DERIVED_TH = {onset_to_door: 'เริ่มอาการ→ถึง รพ.', door_to_ct: 'ถึง รพ.→CT',
+                    door_to_needle: 'ถึง รพ.→rtPA (DTN)', recog_to_needle: 'พบอาการ→rtPA (in-hospital)',
+                    onset_to_needle: 'เริ่มอาการ→rtPA'};
+function renderDq(res, acked=false) {
+  const bar = document.getElementById('dqBar');
+  const parts = [];
+  for (const [k, v] of Object.entries(res.derived || {})) {
+    if (v === null || v === undefined) continue;
+    let mark = '';
+    if (k === 'door_to_needle' || k === 'recog_to_needle') mark = v <= 45 ? ' ✅' : (v <= 60 ? ' 🟡' : ' 🔴');
+    parts.push(`<b>${DERIVED_TH[k] || k}</b> ${v} นาที${mark}`);
+  }
+  document.getElementById('dqDerived').innerHTML = parts.length ? '⏱ ' + parts.join(' · ') : '';
+  const flags = res.flags || [];
+  document.getElementById('dqFlags').innerHTML = flags.map(f =>
+    `<div style="color:${f.level === 'high' ? '#b33' : '#8a5a00'};margin-top:3px">${f.level === 'high' ? '🔴' : '🟡'} ${f.msg}</div>`
+  ).join('') + (acked && !flags.length ? '<div style="color:#1e8e4e;margin-top:3px">✔ รับทราบข้อสงสัยพร้อมเหตุผลแล้ว</div>' : '');
+  const nHigh = flags.filter(f => f.level === 'high').length, nLow = flags.length - nHigh;
+  bar.style.borderLeftColor = nHigh ? '#b33' : (nLow ? '#c47f00' : 'var(--blue)');
+  bar.style.display = (parts.length || flags.length || acked) ? '' : 'none';
+  // เม็ดย่อ: โชว์แค่ DTN + จำนวนธง — กดถึงกาง; กางเองครั้งเดียวเมื่อมีธงแดง
+  const dtnV = res.derived && (res.derived.recog_to_needle ?? res.derived.door_to_needle);
+  const pill = [];
+  if (dtnV !== undefined && dtnV !== null) pill.push(`⏱ DTN ${dtnV} นาที`);
+  else if (parts.length) pill.push('⏱ เวลา');
+  if (nHigh) pill.push(`🔴 ${nHigh}`);
+  if (nLow) pill.push(`🟡 ${nLow}`);
+  if (!flags.length && acked) pill.push('✔ รับทราบแล้ว');
+  document.getElementById('dqPill').innerHTML = pill.join(' · ') + `<span style="color:#999;margin-left:8px">${dqOpen ? '▾' : '▸'}</span>`;
+  if (nHigh && !dqAutoOpened) { dqAutoOpened = true; toggleDq(true); }
+}
+let checkTimer = null;
+function liveCheck() {
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(async () => {
+    try {
+      const r = await fetch('/api/check', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({data: collect()})});
+      const res = await r.json();
+      renderDq(res, false);
+    } catch (e) { /* เงียบ — แค่ตัวช่วยสด */ }
+  }, 500);
+}
+
+// ---- รับทราบข้อสงสัยพร้อมเหตุผล ----
+function openAck(warnings) {
+  document.getElementById('ackList').innerHTML = warnings.map(f =>
+    `<li>${f.level === 'high' ? '🔴' : '🟡'} ${f.msg}</li>`).join('');
+  document.getElementById('ackReason').value = '';
+  document.getElementById('ackModal').style.display = 'flex';
+  document.getElementById('ackReason').focus();
+}
+function closeAck() { document.getElementById('ackModal').style.display = 'none'; }
+let ackThenSubmit = false;
+async function confirmAck() {
+  const reason = document.getElementById('ackReason').value.trim();
+  if (reason.length < 4) { toast('❌ กรุณาใส่เหตุผลสั้นๆ ที่ตรวจแล้ว'); return; }
+  closeAck();
+  if (!(await saveDraft(true, {reason}))) return;
+  toast('✔ บันทึกเหตุผลแล้ว');
+  if (ackThenSubmit) { ackThenSubmit = false; doSubmit(); }
 }
 
 document.getElementById('btnSave').onclick = () => saveDraft();
 
 document.getElementById('btnSubmit').onclick = async () => {
   if (!(await saveDraft(true))) return;
+  if (blockingWarnings.length) { ackThenSubmit = true; openAck(blockingWarnings); return; }
+  doSubmit();
+};
+
+async function doSubmit() {
   const msg = isRepair
     ? 'โปรแกรมจะเปิด "เคสเดิม" บนเว็บ SSCC แล้วเติมทุกช่องตามข้อมูลในโปรแกรม (ไม่สร้างเคสซ้ำ)\nตรวจทานแล้วกด [บันทึก] บนเว็บอีกครั้ง\n\nเริ่มเลยไหม?'
     : 'โปรแกรมจะเปิด Edge ให้ login SSCC แล้วกรอกข้อมูลให้อัตโนมัติ\nตรวจทานบนเว็บก่อนกดบันทึกจริงเสมอ\n\nเริ่มเลยไหม?';
@@ -171,11 +279,14 @@ document.getElementById('btnSubmit').onclick = async () => {
   const res = await fetch(`/case/${caseId}/submit`, {method: 'POST',
     headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})});
   const d = await res.json();
-  if (!d.ok) { toast('❌ ' + d.error); return; }
+  if (!d.ok) {
+    if (d.warnings && d.warnings.length) { blockingWarnings = d.warnings; ackThenSubmit = true; openAck(d.warnings); return; }
+    toast('❌ ' + d.error); return;
+  }
   document.getElementById('btnSubmit').disabled = true;
   document.getElementById('fillLogCard').style.display = '';
   pollStatus();
-};
+}
 
 async function pollStatus() {
   const res = await fetch(`/case/${caseId}/status`);
@@ -198,10 +309,15 @@ async function pollStatus() {
   setTimeout(pollStatus, 3000);
 }
 
-document.getElementById('mainForm').addEventListener('input', () => { dirty = true; applyConditions(); });
+document.getElementById('mainForm').addEventListener('input', () => { dirty = true; applyConditions(); liveCheck(); });
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(() => { if (dirty && caseId) saveDraft(true); }, 45000);
 applyConditions();
+{% if case %}
+pendingWarnings = {{ dq_init.warnings | tojson }};
+blockingWarnings = {{ dq_init.blocking | tojson }};
+renderDq({flags: pendingWarnings, derived: {{ dq_init.derived | tojson }}}, {{ 'true' if dq_init.acked else 'false' }});
+{% endif %}
 {% if case and case.status == 'draft' and case.fill_log %}
 document.getElementById('fillLogCard').style.display = '';
 document.getElementById('fillLog').textContent = {{ case.fill_log | tojson }};

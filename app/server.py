@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 if sys.stdout:
@@ -11,6 +12,7 @@ if sys.stdout:
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
+import checks
 import db
 import excel_export
 import runlock
@@ -18,7 +20,7 @@ import runlock
 APP_DIR = Path(__file__).parent
 CONFIG = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
 CUSTOM_PATH = APP_DIR / "schema" / "custom_fields.json"
-CF_TYPES = {"text", "number", "select", "date", "time", "textarea"}
+CF_TYPES = {"text", "number", "select", "checkbox-group", "date", "time", "textarea"}
 
 app = Flask(__name__)
 
@@ -88,8 +90,12 @@ def case_edit(case_id):
     if not case:
         return redirect(url_for("index"))
     fields = load_schema()
+    dq_init = {"warnings": checks.unacked(case["data"]), "blocking": checks.blocking(case["data"]),
+               "derived": checks.run(case["data"])["derived"],
+               "acked": bool((case["data"].get("_dq") or {}).get("ack"))}
     return render_template("form.html", fields=fields, case=case, values=case["data"],
-                           config=CONFIG, field_key=field_key, show_if_map=show_if_map(fields))
+                           config=CONFIG, field_key=field_key, show_if_map=show_if_map(fields),
+                           dq_init=dq_init)
 
 
 @app.route("/case/save", methods=["POST"])
@@ -100,16 +106,62 @@ def case_save():
     if not (data.get("x_a2") or "").strip():
         return jsonify(ok=False, error="ต้องกรอก HN ก่อนบันทึก"), 400
     if case_id:
-        # เก็บ key ที่ฟอร์มไม่ได้ render (เช่น legacy จาก import / custom ที่ปิดไว้) ไม่ให้หาย
+        # เก็บ key ที่ฟอร์มไม่ได้ render (เช่น legacy จาก import / custom ที่ปิดไว้ / _dq) ไม่ให้หาย
         old = db.get_case(case_id)
         if old:
             known = {field_key(f) for f in load_schema()}
             preserved = {k: v for k, v in old["data"].items() if k not in known}
             data = {**preserved, **data}
+    # ตรวจ timeline/ความสอดคล้อง — บันทึกได้เสมอ (ไม่ทำข้อมูลหาย) แต่เก็บธงไว้กับเคส
+    result = checks.run(data)
+    codes = [f["code"] for f in result["flags"]]
+    dq = dict(data.get("_dq") or {})
+    dq["flags"] = codes
+    dq["checked_at"] = datetime.now().isoformat(timespec="seconds")
+    ack_in = payload.get("ack")
+    if ack_in and codes:
+        # รับทราบธงชุดปัจจุบันพร้อมเหตุผล — ถ้าข้อมูลเปลี่ยนจนธงชุดใหม่โผล่ ต้องรับทราบใหม่
+        dq["ack"] = {"codes": codes, "reason": str(ack_in.get("reason") or "").strip(),
+                     "at": datetime.now().isoformat(timespec="seconds")}
+    if not codes:
+        dq.pop("ack", None)   # ข้อมูลถูกแก้จนไม่มีธงแล้ว — เหตุผลเก่าไม่จำเป็น
+    data["_dq"] = dq
     new_id = db.save_case(case_id, data)
     # Excel เขียนเบื้องหลัง — ไฟล์ใหญ่ขึ้นตามจำนวนเคส (4 พันเคส ~15 วิ) ห้ามให้ปุ่มบันทึกรอ
     excel_export.schedule_export()
-    return jsonify(ok=True, case_id=new_id)
+    return jsonify(ok=True, case_id=new_id, warnings=checks.unacked(data), blocking=checks.blocking(data),
+                   derived=result["derived"], acked=bool(dq.get("ack")))
+
+
+@app.route("/api/check", methods=["POST"])
+def api_check():
+    """ตรวจสดระหว่างกรอก (ไม่บันทึก) — ให้ฟอร์มโชว์นาทีที่คำนวณได้ + ธงทันที"""
+    data = (request.get_json(force=True) or {}).get("data") or {}
+    return jsonify(checks.run(data))
+
+
+@app.route("/dq")
+def dq_page():
+    """เคสที่มีธงคุณภาพข้อมูล — ไล่แก้ก่อนส่ง/ก่อนสรุปตัวชี้วัด"""
+    rows = []
+    counts = {}
+    for c in db.all_cases_full():
+        d = c["data"]
+        res = checks.run(d)
+        if not res["flags"]:
+            continue
+        ack = (d.get("_dq") or {}).get("ack") or {}
+        acked = set(ack.get("codes") or [])
+        for f in res["flags"]:
+            counts[f["code"]] = counts.get(f["code"], 0) + 1
+        rows.append({"id": c["id"], "hn": c["hn"], "status": c["status"],
+                     "door": d.get("x_b3_1_date") or d.get("x_b3_2_date") or "",
+                     "flags": res["flags"], "derived": res["derived"],
+                     "unacked": [f for f in res["flags"] if f["code"] not in acked],
+                     "ack_reason": ack.get("reason") or ""})
+    rows.sort(key=lambda r: (r["door"] or ""), reverse=True)
+    return render_template("dq.html", rows=rows, counts=counts, config=CONFIG,
+                           total=len(rows), n_unacked=sum(1 for r in rows if r["unacked"]))
 
 
 @app.route("/case/<int:case_id>/submit", methods=["POST"])
@@ -123,6 +175,10 @@ def case_submit(case_id):
         return jsonify(ok=False, error="เคสนี้ส่งแล้วแต่ไม่มีเลขที่ผู้ป่วยบันทึกไว้ — ตรวจ/แก้บนเว็บโดยตรง"), 400
     if runlock.read():
         return jsonify(ok=False, error="มีการส่งเข้า SSCC ทำงานค้างอยู่ — ทำเคสในหน้าต่าง Edge ให้เสร็จก่อน"), 409
+    pending = checks.blocking(case["data"])
+    if pending:
+        return jsonify(ok=False, error="มีข้อสงสัยเรื่อง timeline ที่ยังไม่ได้รับทราบ — แก้ข้อมูล หรือกดรับทราบพร้อมเหตุผลก่อนส่ง",
+                       warnings=pending), 400
     base_url = request.get_json(force=True).get("base_url") or CONFIG["sscc_base_url"]
     db.append_log(case_id, f"เริ่มส่งเข้า SSCC ({base_url})")
     spawn_fill([case_id], base_url)
@@ -143,6 +199,10 @@ def queue_submit():
     bad = [i for i in ids if not db.get_case(i) or db.get_case(i)["status"] != "draft"]
     if bad:
         return jsonify(ok=False, error=f"เคสต่อไปนี้ไม่ใช่สถานะร่าง หรือไม่พบ: {bad}"), 400
+    bad_dq = [i for i in ids if checks.blocking(db.get_case(i)["data"])]
+    if bad_dq:
+        return jsonify(ok=False, error="เคสต่อไปนี้มีข้อสงสัยเรื่องเวลาที่ยังไม่รับทราบ — เปิดเคสแล้วแก้ หรือกดรับทราบพร้อมเหตุผลก่อน: "
+                       + ", ".join(f"#{i}" for i in bad_dq)), 400
     base_url = payload.get("base_url") or CONFIG["sscc_base_url"]
     for i in ids:
         db.append_log(i, f"เข้าคิวส่ง SSCC (ทั้งหมด {len(ids)} เคส)")
@@ -268,13 +328,17 @@ def custom_fields_save():
         if not g["key"]:
             g["key"] = f"cf_{next_id}"
             next_id += 1
-        if ftype == "select":
+        if ftype in ("select", "checkbox-group"):
             opts = [{"v": str(o.get("v", "")).strip(), "t": str(o.get("t", "")).strip()}
                     for o in (f.get("options") or [])]
             opts = [o for o in opts if o["t"]]
             if len(opts) < 2:
                 return jsonify(ok=False, error=f"'{label}': ต้องมีตัวเลือกอย่างน้อย 2 ตัวเลือก"), 400
             g["options"] = opts
+        # เงื่อนไขการแสดง (ตั้งได้จากไฟล์ schema เท่านั้น) — เก็บผ่านไม่ให้หายเวลาแก้จากหน้า UI
+        cond = f.get("show_if")
+        if isinstance(cond, dict) and all(isinstance(v, list) for v in cond.values()):
+            g["show_if"] = cond
         if ftype == "number":
             for k in ("min", "max"):
                 if f.get(k) not in (None, ""):

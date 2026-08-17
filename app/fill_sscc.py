@@ -28,6 +28,38 @@ SCHEMA = json.loads((APP_DIR / "schema" / "sscc_fields.json").read_text(encoding
 LOGIN_WAIT_MS = 10 * 60 * 1000        # รอ login สูงสุด 10 นาที
 REVIEW_WAIT_MS = 60 * 60 * 1000       # รอตรวจทานสูงสุด 60 นาที
 
+# session login ของ SSCC เป็น cookie ชั่วคราว (หายเมื่อปิดเบราว์เซอร์) — Edge ที่เปิดใหม่ทุกครั้งที่ส่งเคส
+# จึงต้อง login ใหม่ตลอด (friction ที่หน้างานบ่น 2026-08) → เก็บ cookie ไว้เองแล้วใส่คืนตอนเปิดรอบถัดไป
+# ไฟล์นี้ = ตั๋ว login ของบัญชีที่ใช้ล่าสุด อยู่ในเครื่องนี้เท่านั้น (ระดับความลับเท่ากับ data/edge_profile)
+SESSION_PATH = APP_DIR / "data" / "sscc_session.json"
+
+
+def _cookie_matches(c, base_url):
+    from urllib.parse import urlparse
+    host = (urlparse(base_url).hostname or "").lower()
+    dom = (c.get("domain") or "").lstrip(".").lower()
+    return bool(host and dom and (host == dom or host.endswith("." + dom)))
+
+
+def restore_session(context, base_url):
+    """ใส่ cookie login รอบก่อนกลับเข้าเบราว์เซอร์ — ถ้า server หมดอายุแล้ว หน้าเว็บจะเด้ง login เองตามปกติ"""
+    try:
+        cookies = [c for c in json.loads(SESSION_PATH.read_text(encoding="utf-8")) if _cookie_matches(c, base_url)]
+        if cookies:
+            context.add_cookies(cookies)
+        return len(cookies)
+    except Exception:
+        return 0
+
+
+def save_session(context, base_url):
+    try:
+        cookies = [c for c in context.cookies() if _cookie_matches(c, base_url)]
+        if cookies:
+            SESSION_PATH.write_text(json.dumps(cookies), encoding="utf-8")
+    except Exception:
+        pass
+
 # ฟิลด์ในแท็บที่ยังไม่เปิดจะถูกซ่อน (display:none) — ต้องคลิกแท็บก่อนถึงกรอกได้
 SECTION_TAB_INDEX = {"A": 0, "A7": 1, "B": 2, "C1": 3, "C2": 4, "D": 5, "E": 6, "F": 7}
 
@@ -129,6 +161,7 @@ def open_add_form(page, base_url, case_id):
             page.wait_for_selector('[name="x_a2"]', timeout=5000)
             if told_login:
                 log(case_id, "login สำเร็จ")
+            save_session(page.context, base_url)   # จำ session ไว้ให้รอบหน้าไม่ต้อง login ใหม่
             return
         except PWTimeout:
             pass
@@ -259,6 +292,33 @@ def robot_banner(page, text, color="#b45309"):
         pass
 
 
+def ensure_logged_in(page, base_url, case_id):
+    """เปิดหน้า list ของ SSCC ให้แน่ใจว่า login อยู่ (ใช้ก่อนเปิดเคสเดิม/ซ่อม — ไม่งั้นหน้า login จะถูกอ่านผิดว่า 'เคสหาย')"""
+    import time
+    deadline = time.time() + LOGIN_WAIT_MS / 1000
+    told = False
+    while time.time() < deadline:
+        try:
+            page.goto(f"{base_url}/stroke_formlist.php", wait_until="domcontentloaded", timeout=30000)
+        except PWTimeout:
+            continue
+        page.wait_for_timeout(500)
+        has_login = page.locator('input[type="password"]').count() > 0 or "login" in page.url.lower()
+        if not has_login:
+            if told:
+                log(case_id, "login สำเร็จ")
+            save_session(page.context, base_url)
+            return
+        if not told:
+            log(case_id, "กรุณา login ด้วยบัญชีของท่านในหน้าต่าง Edge (โปรแกรมไม่บันทึกรหัสผ่าน)")
+            told = True
+        try:
+            page.wait_for_function("() => !document.querySelector('input[type=password]')", timeout=LOGIN_WAIT_MS)
+        except PWTimeout:
+            pass
+    raise RuntimeError("login ไม่สำเร็จภายในเวลาที่กำหนด")
+
+
 def fill_edit_page(page, base_url, pid, data, case_id):
     """เปิดหน้าแก้ไขแล้วเติมทุกฟิลด์ — คืน ("ok"|"no_page"|"unstable", warnings)
     ถ้าหน้าเว็บถูกเปลี่ยนไประหว่างกรอก (มีคนคลิก/เว็บเด้งออก) ค่าที่กรอกไว้จะหายทั้งหน้า
@@ -348,6 +408,8 @@ def process_case(page, base_url, case, args, queue_mode):
 
     fill_status = None
     warnings = []
+    if pid:
+        ensure_logged_in(page, base_url, cid)
     for round_ in (1, 2):
         if not pid:
             # ---- ขั้นที่ 1: สร้างเคส (A1-A6) ----
@@ -506,6 +568,8 @@ def main():
                     profile_dir, channel=CONFIG.get("browser_channel", "msedge"),
                     headless=args.headless, no_viewport=True)
                 page = context.pages[0] if context.pages else context.new_page()
+                if restore_session(context, args.base_url):
+                    log(ids[0], "ใช้ session login รอบก่อน — ถ้ายังไม่หมดอายุจะไม่ต้อง login ใหม่")
             # ยอมรับ dialog อัตโนมัติ (ค่าเริ่มต้นของ Playwright คือกด "ยกเลิก" ซึ่งจะยกเลิกการบันทึก)
             page.on("dialog", lambda d: d.accept())
             # ฟิลด์ที่มีปัญหาไม่ควรค้างนาน 30 วิ (ค่าเริ่มต้น Playwright) — 10 วิพอ แล้วไปตัวถัดไป
@@ -544,6 +608,8 @@ def main():
                     if sent < len(cases):
                         exit_code = 6
             finally:
+                if not is_mock:
+                    save_session(context, args.base_url)
                 try:
                     context.close()
                 except Exception:

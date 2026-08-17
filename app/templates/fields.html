@@ -26,6 +26,7 @@
       <option value="textarea">ข้อความยาว (หลายบรรทัด)</option>
       <option value="number">ตัวเลข</option>
       <option value="select">ตัวเลือก (ปุ่มกด / รายการให้เลือก)</option>
+      <option value="checkbox-group">ตัวเลือกหลายข้อ (ติ๊กได้หลายอัน)</option>
       <option value="date">วันที่</option>
       <option value="time">เวลา</option>
     </select></div></div>
@@ -49,7 +50,7 @@
 let fields = {{ fields | tojson }};
 let editIdx = -1;
 const TYPE_TH = {text: 'ข้อความสั้น', textarea: 'ข้อความยาว', number: 'ตัวเลข',
-                 select: 'ตัวเลือก', date: 'วันที่', time: 'เวลา'};
+                 select: 'ตัวเลือก', 'checkbox-group': 'ติ๊กหลายข้อ', date: 'วันที่', time: 'เวลา'};
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
@@ -62,12 +63,14 @@ function render() {
     return;
   }
   fields.forEach((f, i) => {
-    const opts = f.type === 'select'
+    const opts = (f.type === 'select' || f.type === 'checkbox-group')
       ? `<div style="font-size:12px;color:#888">${esc((f.options || []).map(o => o.t).join(' / '))}</div>` : '';
+    const cond = f.show_if
+      ? `<div style="font-size:12px;color:#4a4a9c">แสดงเฉพาะเมื่อ: ${esc(Object.entries(f.show_if).map(([k, v]) => k + ' = ' + v.join('/')).join(' และ '))}</div>` : '';
     const off = f.enabled === false;
     tbl.insertRow().innerHTML = `
       <td style="text-align:center;color:#aaa">${i + 1}</td>
-      <td ${off ? 'style="color:#999"' : ''}>${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}${opts}</td>
+      <td ${off ? 'style="color:#999"' : ''}>${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}${opts}${cond}</td>
       <td>${TYPE_TH[f.type] || esc(f.type)}</td>
       <td style="text-align:center"><input type="checkbox" style="width:auto" ${off ? '' : 'checked'}
           onchange="toggleEnabled(${i}, this.checked)"></td>
@@ -119,7 +122,7 @@ function openEditor(i) {
 function closeEditor() { document.getElementById('editor').style.display = 'none'; editIdx = -1; }
 function editorTypeChanged() {
   const t = document.getElementById('edType').value;
-  document.getElementById('rowOptions').style.display = t === 'select' ? '' : 'none';
+  document.getElementById('rowOptions').style.display = (t === 'select' || t === 'checkbox-group') ? '' : 'none';
   document.getElementById('rowMinMax').style.display = t === 'number' ? '' : 'none';
 }
 
@@ -132,11 +135,13 @@ async function saveEditor() {
   f.type = type;
   f.hint = document.getElementById('edHint').value.trim() || undefined;
   f.required = document.getElementById('edRequired').checked || undefined;
+  const oldOpts = f.options || [];
   delete f.options; delete f.min; delete f.max;
-  if (type === 'select') {
+  if (type === 'select' || type === 'checkbox-group') {
     const lines = document.getElementById('edOptions').value.split('\n').map(s => s.trim()).filter(Boolean);
     if (lines.length < 2) { toast('❌ ใส่ตัวเลือกอย่างน้อย 2 บรรทัด'); return; }
-    f.options = lines.map(s => ({v: s, t: s}));
+    // ตัวเลือกเดิมที่ข้อความตรงกัน คงรหัส (v) เดิมไว้ — ข้อมูลเก่าในฐานยังอ่านออก
+    f.options = lines.map(s => { const o = oldOpts.find(x => x.t === s); return {v: o ? o.v : s, t: s}; });
   }
   if (type === 'number') {
     const mn = document.getElementById('edMin').value, mx = document.getElementById('edMax').value;

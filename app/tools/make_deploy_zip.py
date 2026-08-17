@@ -16,7 +16,7 @@ APP = Path(__file__).parent.parent
 DEST_DIR = APP.parent  # C:\SSCC
 
 # ไฟล์/โฟลเดอร์ที่เครื่องพยาบาลต้องใช้ — ไม่รวม data/ (session+ฐานข้อมูล), output/, mock/, __pycache__
-INCLUDE_FILES = ["server.py", "fill_sscc.py", "db.py", "excel_export.py", "import_export.py",
+INCLUDE_FILES = ["server.py", "checks.py", "fill_sscc.py", "db.py", "excel_export.py", "import_export.py",
                  "runlock.py", "setup.bat", "start.bat", "update.bat", "requirements.txt", "README.md"]
 INCLUDE_DIRS = ["schema", "templates"]
 
