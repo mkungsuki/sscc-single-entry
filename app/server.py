@@ -64,8 +64,41 @@ def merge_default_custom_fields():
         CUSTOM_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+_FREQ_CACHE = {"at": None, "data": {}}
+FREQ_MIN_OPTIONS = 12   # select ที่ตัวเลือกยาวกว่านี้ จะมีกลุ่ม "ใช้บ่อย" ขึ้นก่อน (จากสถิติเคสจริงในเครื่อง)
+FREQ_TOP_N = 8
+
+
+def frequent_options():
+    """นับค่าที่ รพ. นี้ใช้จริงต่อฟิลด์ select (จากเคสทั้งหมดในฐาน) — คำนวณใหม่ทุก 30 นาที
+    ใช้ยกตัวเลือกที่เจอบ่อยขึ้นบนสุด โดยไม่ตัดตัวเลือกอื่นออก (เช่น สิทธิการรักษา 64 ตัว แต่ชุมแพใช้จริง ~8)"""
+    now = datetime.now()
+    if _FREQ_CACHE["at"] and (now - _FREQ_CACHE["at"]).total_seconds() < 1800:
+        return _FREQ_CACHE["data"]
+    counts = {}
+    try:
+        for c in db.all_cases_full():
+            for k, v in c["data"].items():
+                if isinstance(v, str) and v:
+                    counts.setdefault(k, {}).setdefault(v, 0)
+                    counts[k][v] += 1
+    except Exception:
+        counts = {}
+    _FREQ_CACHE.update(at=now, data=counts)
+    return counts
+
+
 def load_schema():
     schema = json.loads((APP_DIR / "schema" / "sscc_fields.json").read_text(encoding="utf-8"))
+    freq = frequent_options()
+    for f in schema["fields"]:
+        opts = f.get("options") or []
+        if f["type"] == "select" and len(opts) > FREQ_MIN_OPTIONS and not f.get("special"):
+            used = freq.get(field_key(f)) or {}
+            valid = {o["v"] for o in opts}
+            top = [v for v, _ in sorted(used.items(), key=lambda kv: -kv[1]) if v in valid][:FREQ_TOP_N]
+            if len(top) >= 3:
+                f["frequent"] = top
     custom = []
     for f in read_custom_raw().get("fields", []):
         if not f.get("enabled", True):

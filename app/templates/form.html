@@ -41,9 +41,23 @@
     {% elif f.type == 'select' %}
       <select data-input {% if f.get('required') %}required{% endif %}>
         <option value="">— เลือก —</option>
+        {% if f.get('frequent') %}
+        {# กลุ่ม "ใช้บ่อย" จากสถิติเคสจริงของ รพ. — ตัวเลือกทั้งหมดยังอยู่ครบข้างล่าง #}
+        <optgroup label="★ ใช้บ่อยที่ รพ. นี้">
+          {% for fv in f.frequent %}{% for o in f.get('options', []) if o.v == fv %}
+          <option value="{{ o.v }}" {% if val == o.v %}selected{% endif %}>{{ o.t }}</option>
+          {% endfor %}{% endfor %}
+        </optgroup>
+        <optgroup label="ทั้งหมด (ก-ฮ)">
+          {% for o in f.get('options', []) %}
+          <option value="{{ o.v }}" {% if val == o.v and o.v not in f.frequent %}selected{% endif %}>{{ o.t }}</option>
+          {% endfor %}
+        </optgroup>
+        {% else %}
         {% for o in f.get('options', []) %}
         <option value="{{ o.v }}" {% if val == o.v %}selected{% endif %}>{{ o.t }}</option>
         {% endfor %}
+        {% endif %}
       </select>
     {% elif f.type == 'checkbox-group' %}
       {% for o in f.get('options', []) %}
