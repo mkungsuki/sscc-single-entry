@@ -1,9 +1,11 @@
 @echo off
 chcp 65001 >nul
-title SSCC Stroke - อัปเดตโปรแกรม
+title SSCC Stroke - Update
 
-rem สองจังหวะ: ไฟล์นี้จะถูกอัปเดตทับด้วย เลยก๊อปตัวเองไปรันจาก TEMP ก่อน
-rem ส่งที่อยู่โฟลเดอร์ผ่าน env var — ส่งเป็น argument ที่มี quote สองชุดแล้ว cmd ตัด quote เพี้ยน (เจอจริง)
+rem Two-stage: this file gets replaced during update, so copy self to TEMP and run from there.
+rem Pass APPDIR via env var (argument with quotes breaks inside start's cmd /c).
+rem NOTE: this file is ASCII-only on purpose. Thai text in .bat files renders as garbage
+rem on old consoles and trips cmd's UTF-8 line parser. Thai messages live in the web UI.
 if /i "%~1" neq "GO" (
   copy /y "%~f0" "%TEMP%\sscc_update_run.bat" >nul
   set "SSCC_APPDIR=%~dp0"
@@ -13,7 +15,7 @@ if /i "%~1" neq "GO" (
 
 set "APPDIR=%SSCC_APPDIR%"
 if not defined APPDIR (
-  echo กรุณาดับเบิลคลิก update.bat ในโฟลเดอร์โปรแกรม ไม่ใช่ไฟล์สำเนาใน TEMP
+  echo Please double-click update.bat inside the program folder, not the TEMP copy.
   pause
   exit /b 1
 )
@@ -23,14 +25,14 @@ set "WORK=%TEMP%\sscc_update_work"
 
 echo.
 echo  ============================================
-echo    SSCC Stroke - อัปเดตโปรแกรมจาก GitHub
+echo    SSCC Stroke - Update from GitHub
 echo  ============================================
 echo.
 
-echo  [1/4] ปิดโปรแกรมที่เปิดค้างอยู่ (ถ้ามี)...
+echo  [1/5] Closing running program (if any)...
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr /r /c:":8547 .*LISTENING"') do taskkill /pid %%P /f >nul 2>&1
 
-echo  [2/4] ดาวน์โหลดเวอร์ชันล่าสุด...
+echo  [2/5] Downloading latest version...
 if exist "%WORK%" rd /s /q "%WORK%"
 mkdir "%WORK%"
 powershell -NoProfile -NonInteractive -Command "$ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol='Tls12'; Invoke-WebRequest -Uri '%REPO_ZIP%' -OutFile '%WORK%\src.zip'"
@@ -42,38 +44,50 @@ set "SRC="
 for /d %%D in ("%WORK%\*") do if exist "%%D\app\server.py" set "SRC=%%D\app"
 if not defined SRC goto :dl_fail
 
-call :find_python
+echo  [3/5] Checking downloaded files...
+rem Never install broken files: every .bat must be non-empty and the core files must exist.
+rem (2026-08-18: a bad conversion step once zeroed every .bat and this check did not exist.)
+for %%F in ("%SRC%\*.bat") do if %%~zF LSS 200 goto :bad_src
+if not exist "%SRC%\start.bat" goto :bad_src
+if not exist "%SRC%\update.bat" goto :bad_src
+if not exist "%SRC%\templates\form.html" goto :bad_src
+echo         OK
 
-rem กันเหนียว: ไฟล์ .bat ต้องเป็น CRLF (ปกติ GitHub แปลงให้แล้วผ่าน .gitattributes)
-rem ห้ามใช้ powershell ตรงนี้ — เคยค้างไม่จบในคอนโซลที่เปิดผ่าน start (เจอจริง 2026-08-11)
-if defined PY %PY% -c "import glob; [open(f,'wb').write(open(f,'rb').read().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')) for f in glob.glob(r'%SRC%\*.bat')]"
-
-echo  [3/4] ติดตั้งไฟล์ใหม่ (ฐานข้อมูล / ไฟล์ Excel / การตั้งค่า / ฟิลด์ รพ. ไม่ถูกแตะ)...
+echo  [4/5] Installing (database / Excel / settings / hospital fields are NOT touched)...
 robocopy "%SRC%" "%APPDIR%." /e /xd data output __pycache__ mock tools /xf config.json custom_fields.json >nul
 if errorlevel 8 goto :copy_fail
+for %%F in ("%APPDIR%start.bat" "%APPDIR%update.bat") do if %%~zF LSS 200 goto :copy_fail
 
-echo  [4/4] ติดตั้งไลบรารีที่อาจเพิ่มใหม่...
+echo  [5/5] Installing any new libraries...
+call :find_python
 if defined PY %PY% -m pip install --disable-pip-version-check -q -r "%APPDIR%requirements.txt"
 
 echo.
-echo  อัปเดตเสร็จแล้ว - กำลังเปิดโปรแกรม...
+echo  Update complete - starting the program...
 timeout /t 2 /nobreak >nul 2>&1
 start "" "%APPDIR%start.bat"
 exit /b 0
 
 :dl_fail
 echo.
-echo  ดาวน์โหลดไม่สำเร็จ - เช็คว่าเครื่องต่ออินเทอร์เน็ตอยู่ แล้วดับเบิลคลิก update.bat ใหม่
+echo  Download failed - check the internet connection, then double-click update.bat again.
+pause
+exit /b 1
+
+:bad_src
+echo.
+echo  Downloaded files look incomplete - nothing was changed. Try again later.
 pause
 exit /b 1
 
 :copy_fail
 echo.
-echo  ติดตั้งไฟล์ไม่สำเร็จ - ปิดหน้าต่างโปรแกรม/โฟลเดอร์ที่เปิดค้าง แล้วลองใหม่
+echo  Install failed - close any open program/folder windows and try again.
+echo  If start.bat no longer opens, extract start.bat/update.bat/setup.bat from the deploy zip.
 pause
 exit /b 1
 
-rem ---- หา Python 3.10+ ในเครื่อง: PATH -> py launcher -> โฟลเดอร์ติดตั้งมาตรฐาน ----
+rem ---- find Python 3.10+: PATH, then py launcher, then standard install folders ----
 :find_python
 set "PY="
 call :try_py python

@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title SSCC Stroke - กรอกครั้งเดียว
+title SSCC Stroke
 cd /d %~dp0
 
-rem โปรแกรมเปิดอยู่แล้ว (เช่นดับเบิลคลิกซ้ำ) - เปิดหน้าเว็บเฉยๆ พอ
+rem Already running (e.g. double-clicked twice): just open the web page.
 netstat -ano 2>nul | findstr /r /c:":8547 .*LISTENING" >nul
 if not errorlevel 1 (
   start "" http://127.0.0.1:8547/
@@ -21,11 +21,11 @@ pause
 exit /b 0
 
 :need_setup
-echo  ยังติดตั้งไม่ครบ - ดับเบิลคลิก setup.bat หนึ่งครั้งก่อน แล้วค่อยเปิดใหม่
+echo  Not installed yet - double-click setup.bat once, then open again.
 pause
 exit /b 1
 
-rem ---- หา Python 3.10+ ในเครื่อง: PATH -> py launcher -> โฟลเดอร์ติดตั้งมาตรฐาน ----
+rem ---- find Python 3.10+: PATH, then py launcher, then standard install folders ----
 :find_python
 set "PY="
 call :try_py python
