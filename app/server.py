@@ -420,7 +420,14 @@ def custom_fields_save():
     raw["fields"] = out
     raw["_next_id"] = next_id
     CUSTOM_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+    # คอลัมน์ใน Excel ต้องตามฟิลด์ทันที — ไม่ใช่รอจนมีคนบันทึกเคสถัดไป (บั๊กจริงที่ รพ. 2026-08-18)
+    excel_export.schedule_export()
     return jsonify(ok=True, fields=out)
+
+
+@app.route("/excel/status")
+def excel_status():
+    return jsonify(excel_export.status())
 
 
 if __name__ == "__main__":

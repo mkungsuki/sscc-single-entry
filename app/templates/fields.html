@@ -14,6 +14,7 @@
   <div style="margin-top:12px">
     <button class="btn btn-primary" onclick="openEditor(-1)">＋ เพิ่มหัวข้อใหม่</button>
   </div>
+  <div id="excelNote" class="hint" style="display:none;margin-top:10px;font-size:13px"></div>
 </div>
 
 <div class="card" id="editor" style="display:none">
@@ -90,8 +91,32 @@ async function persist(msg) {
   if (!d.ok) { toast('❌ ' + (d.error || 'บันทึกไม่สำเร็จ')); return false; }
   fields = d.fields;
   render();
-  if (msg) toast(msg);
+  if (msg) toast(msg + ' — กำลังอัปเดตคอลัมน์ในไฟล์ Excel...', 4000);
+  watchExcel();
   return true;
+}
+
+// รอให้ Excel เขียนเสร็จแล้วบอกผล — ถ้าไฟล์เปิดค้างอยู่ใน Excel จะเขียนไม่ได้ ต้องบอกให้รู้ตรงนี้เลย
+let excelTimer = null;
+function watchExcel() {
+  clearTimeout(excelTimer);
+  let tries = 0;
+  const tick = async () => {
+    let s;
+    try { s = await (await fetch('/excel/status')).json(); } catch { return; }
+    if (s.running && tries++ < 40) { excelTimer = setTimeout(tick, 2000); return; }
+    const box = document.getElementById('excelNote');
+    if (s.error) {
+      box.style.display = '';
+      box.textContent = '⚠️ ยังอัปเดตไฟล์ Excel ไม่ได้: ' + s.error;
+      toast('⚠️ ' + s.error, 7000);
+    } else {
+      box.style.display = '';
+      box.textContent = '📄 ไฟล์ Excel อัปเดตคอลัมน์แล้ว (' + (s.updated || '') + ') — ถ้าเปิดไฟล์ค้างอยู่ ปิดแล้วเปิดใหม่จึงจะเห็น';
+      toast('📄 ไฟล์ Excel อัปเดตคอลัมน์แล้ว', 3500);
+    }
+  };
+  excelTimer = setTimeout(tick, 1500);
 }
 
 function toggleEnabled(i, on) { fields[i].enabled = on; persist(on ? '✅ เปิดใช้แล้ว' : 'ปิดไว้แล้ว (ข้อมูลที่เคยกรอกไม่หาย)'); }
