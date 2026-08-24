@@ -37,8 +37,12 @@ def _custom_fields(used_keys):
 
 
 def _label_for_value(field, v):
-    """แปลงรหัสเป็นข้อความอ่านได้ (เก็บทั้งรหัสและข้อความใน Excel)"""
-    for o in field.get("options", []) or []:
+    """แปลงรหัสเป็นข้อความอ่านได้ (เก็บทั้งรหัสและข้อความใน Excel)
+    ค่าแบบเลือกหลายข้อ (checkbox-group) แปลงทีละรหัสก่อนค่อยรวม"""
+    opts = field.get("options", []) or []
+    if isinstance(v, list):
+        return ", ".join(_label_for_value(field, x) for x in v)
+    for o in opts:
         if o["v"] == v:
             return o["t"]
     return v
@@ -58,14 +62,15 @@ def export_master():
     known = {f.get("sscc") or f["key"] for f in fields}
     extra_keys = sorted({k for c in cases for k in c["data"] if k not in known and not k.startswith("_")})
 
+    # ชีตอ่านได้อยู่หน้าแรก — เปิดไฟล์มาเจอภาษาไทยเลย ส่วนรหัสดิบ (ไว้เทียบกับเว็บ สป.) อยู่ชีตสอง
     wb = Workbook()
-    ws = wb.active
-    ws.title = "master"
-    ws2 = wb.create_sheet("รหัส (อ่านได้)")
+    ws2 = wb.active
+    ws2.title = "ข้อมูล (อ่านได้)"
+    ws = wb.create_sheet("รหัสดิบ SSCC")
 
     header = meta_cols + [f.get("sscc") or f["key"] for f in fields] + extra_keys
     header_labels = meta_cols + [f["label"] for f in fields] + [k.replace("legacy|", "") for k in extra_keys]
-    for ws_, hdr in ((ws, header), (ws2, header_labels)):
+    for ws_, hdr in ((ws2, header_labels), (ws, header)):
         ws_.append(hdr)
         for c in ws_[1]:
             c.font = Font(bold=True)
@@ -82,10 +87,11 @@ def export_master():
         for f in fields:
             key = f.get("sscc") or f["key"]
             v = d.get(key, "")
+            readable_row.append(_label_for_value(f, v) if f.get("options") else
+                                (", ".join(v) if isinstance(v, list) else v))
             if isinstance(v, list):
                 v = ", ".join(v)
             raw_row.append(v)
-            readable_row.append(_label_for_value(f, v) if f.get("options") else v)
         for k in extra_keys:
             raw_row.append(d.get(k, ""))
             readable_row.append(d.get(k, ""))
