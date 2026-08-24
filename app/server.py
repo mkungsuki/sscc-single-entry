@@ -366,6 +366,17 @@ def open_output():
     return jsonify(ok=True)
 
 
+@app.route("/settings/open_excel", methods=["POST"])
+def open_excel():
+    """เปิดไฟล์ master ใน Excel ให้เลย — ผู้ใช้ไม่ต้องคลำหาไฟล์เองในโฟลเดอร์"""
+    p = excel_export.master_dir() / "SSCC_master.xlsx"
+    if not p.exists():
+        return jsonify(ok=False, error="ยังไม่มีไฟล์ Excel — กด '📄 สร้าง Excel ใหม่' ก่อน")
+    import os
+    os.startfile(str(p))
+    return jsonify(ok=True)
+
+
 @app.route("/fields")
 def fields_page():
     return render_template("fields.html", fields=read_custom_raw().get("fields", []), config=CONFIG)

@@ -20,6 +20,7 @@
     <button class="btn">ค้นหา</button>
     {% if q %}<a class="btn" href="/?status={{ status_f }}">ล้าง</a>{% endif %}
     <span style="flex:1"></span>
+    <button class="btn" type="button" onclick="openExcel()">📊 เปิดไฟล์ Excel</button>
     <button class="btn" type="button" onclick="makeExcel()">📄 สร้าง Excel ใหม่</button>
   </form>
   <table>
@@ -68,6 +69,11 @@ function makeExcel() {
 
 // ---- ที่เก็บไฟล์ Excel ----
 function openOutput() { fetch('/settings/open_output', {method: 'POST'}); }
+function openExcel() {
+  fetch('/settings/open_excel', {method: 'POST'}).then(r => r.json())
+    .then(d => toast(d.ok ? '📊 เปิดไฟล์แล้ว — ดูเสร็จอย่าลืมปิด ไม่งั้นโปรแกรมอัปเดตไฟล์ไม่ได้' : '❌ ' + d.error, 5000))
+    .catch(() => toast('❌ เปิดไฟล์ไม่สำเร็จ'));
+}
 async function setDir(body) {
   const r = await fetch('/settings/master_dir', {method: 'POST',
     headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
