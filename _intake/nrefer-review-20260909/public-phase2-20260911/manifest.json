@@ -1,0 +1,195 @@
+{
+  "fetched_utc": "2026-09-10T18:54:08.411875+00:00",
+  "files": [
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-EGPMWWUF.js",
+      "sha256": "2fbca3f1972f35c41a79614d01d8bccb61ca61ac7d8b9b6026ec1bf909101801",
+      "bytes": 14361
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-EWLWV3SK.js",
+      "sha256": "be0fb6f8baee9ceadc4800f6ee95741f0d6af614c27ed0d1f9462f6da339faf7",
+      "bytes": 945
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-HIED3E66.js",
+      "sha256": "33e114a1f3770ad7748fa1323f064eede590fac61d97172711c238ae94ab9639",
+      "bytes": 296486
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-IEK7G6XB.js",
+      "sha256": "cea661a7436751433c89a2ee61f952090cf59cd54653526e5728b5fee4dfd032",
+      "bytes": 595852
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-M5OBKONG.js",
+      "sha256": "024bc916d474c362beda3bf6ef27107a6f9424f9e9f7bc5777c759f80230aaf4",
+      "bytes": 4215
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-PEZBZG25.js",
+      "sha256": "b59fdb8ed397211357e1486e6bfaf1820d0a347a119d2a37f314ec18f5aad036",
+      "bytes": 2170
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-T5BZUTSZ.js",
+      "sha256": "94aa655348148cfca715fe330558170e63ff78ba3716ea7032d95d6c22a6f428",
+      "bytes": 82781
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-TO245DYV.js",
+      "sha256": "718f595e8c68bf784d0771c87e161d1b71a48d8518e53ace3cf72acd5023ae0b",
+      "bytes": 853201
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-UOARNUKR.js",
+      "sha256": "cabfd4459c7875a4121ae07f159ea46156380d04fe19a46a6a5d4174aef08af7",
+      "bytes": 505
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-X5EBMGCS.js",
+      "sha256": "c75387ff0c49f392f1db1eee16873e4f52878fc8c5c8329bf69c8c28a4454935",
+      "bytes": 9232
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/main-CLHAXOP7.js",
+      "sha256": "658043c6aa004d16f654b487e746d1d90d1cbdca9e3fe775d95639fa9eea30ca",
+      "bytes": 11415
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-254GE2H7.js",
+      "sha256": "3f4017fd9f0f4e7e48531c98ab98566d4b7c50fd55796e51a45c7cc98f12e5c1",
+      "bytes": 176
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-HIBBO6OI.js",
+      "sha256": "176aacf2c4543665631ca2bcd0779fd781aac2e48647b76087e3c9ec25e572ba",
+      "bytes": 42055
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-JIKMMS3M.js",
+      "sha256": "2767ed207c2a2ea46ae731f39457167b8c311bb792f0d1e7e456a386e2588073",
+      "bytes": 325004
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-MFFLFG5Q.js",
+      "sha256": "b1443728bfc5c363edddfd00ada88f4b0072865487514b0600b4113dab643218",
+      "bytes": 1427
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-PMLKIGDK.js",
+      "sha256": "9e05c6fa3d7abe8a6796e9ec81b740e0e2437499ff625b710f498ef7474538b5",
+      "bytes": 206289
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-PXQT7U5Q.js",
+      "sha256": "8c0013322f71c1ef4af8eef3c9b0bd49e533c4c799429c3b4d8afbd9358f0342",
+      "bytes": 49104
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-QJ7QVBOC.js",
+      "sha256": "35afddea7e9300a6c0ef86817b856186d18ab11938b843250d8711b1d827a59c",
+      "bytes": 32593
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-SL56MN7A.js",
+      "sha256": "202861770ec8e100153dc1946733e61baa955f27ccf6e7c8483f8f2e00d05cf5",
+      "bytes": 102126
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-SNP26XL5.js",
+      "sha256": "dfbfe6e2926e25a4ba06430f7b3df61944f4e795aa6fea6b23dd68a3d57484d0",
+      "bytes": 1213
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-TG5ZR4BI.js",
+      "sha256": "54054114b78761ff143ca6f4edb1846e3e7ae24635ddf663a9682f7060b58ba8",
+      "bytes": 716699
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-UIVIL3PE.js",
+      "sha256": "3a52697ec4dbfb55e03be6df26655d4dc338b13671e06fd16d66aacdeae760c7",
+      "bytes": 449794
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-VJGONYAB.js",
+      "sha256": "467545fdb203ef82abe3b12c3bd17e166248c799cffcef1f230b5aadf0aac345",
+      "bytes": 321173
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-YIZVN4CH.js",
+      "sha256": "2aa1c2b4a1b862c920410f78b6a429627c109dd39d3805770679dfdc23e81d35",
+      "bytes": 62913
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-YSRJMPBN.js",
+      "sha256": "cdbd43d13cbd43e87faf6670cf0f6f2ccf4626cf7ca36bd2aa6b8a97d70e0c82",
+      "bytes": 237
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-AOFYZBHJ.js",
+      "sha256": "c466899618e7056452bc94fa766faf0e30c3e8158aee27199a1ed8a096d8d5ea",
+      "bytes": 103229
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-C7NPM7IR.js",
+      "sha256": "3c8fba480de79d926e20d738c1c6ebf0aadc4b85bb8f7b7083bc11f645887c41",
+      "bytes": 76814
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-FK6H3RFT.js",
+      "sha256": "e4ae3fe180204606215dd6a440d58a5c976c844a789b37d27d655c5e57420bc8",
+      "bytes": 272
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-GM2BDLUJ.js",
+      "sha256": "cd67e1885038010841a1a98661c0ebaebd57575429c4d3a8883a083510b1aa20",
+      "bytes": 1155483
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-IDUPDBRN.js",
+      "sha256": "03e95c7dd6b54b0364017bef86a11a87fc20de08490d864d070b8edf93884771",
+      "bytes": 23936
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-NP4UUAQJ.js",
+      "sha256": "3b35734b548a9da82b608e79f84ad84603a85989132e1d58abc6116f1aa64569",
+      "bytes": 6002
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-QL37APUG.js",
+      "sha256": "44b11f2a39e7c625225d0671e1cee4a44c3486bf023e8b4d3c13d8bc060e4641",
+      "bytes": 81641
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-UUSSHSAF.js",
+      "sha256": "cb6b5cc502a057f60531f42ed26f6f947821e957e1e7fe08d17bc7b00a9fb82f",
+      "bytes": 541091
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-WBIT7KHC.js",
+      "sha256": "7f5643c96e6b02b6d77717e2351088ffe7cd022bbe6d6d8fef8648b210de8095",
+      "bytes": 83
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-WJLTZFEO.js",
+      "sha256": "c49be42a14ff7f9642e174812e97c8921563fe0498fa1ea6a3b75b7eae902348",
+      "bytes": 17650
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-XA5FMZMP.js",
+      "sha256": "947b20e99b03f1c1fdfa2493a8c0993bb9d721519fb1167c04c879f9635b889e",
+      "bytes": 158962
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-YCYWBJPF.js",
+      "sha256": "65a79df0f304ceb02087d145175d8e7cca793941b7e0994b230ce10abb34485c",
+      "bytes": 202856
+    },
+    {
+      "url": "https://nrefer.moph.go.th/beta/chunk-ZRG2TQPM.js",
+      "sha256": "ae629a595230e4ab530eb53fedfbbc952269f1122fb2f6a5a3249897d83ea8b6",
+      "bytes": 94554
+    }
+  ]
+}

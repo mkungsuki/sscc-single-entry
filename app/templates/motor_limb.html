@@ -1,0 +1,42 @@
+{% if f.get('motor_start') %}
+<section class="motor-panel" aria-labelledby="motorTitle">
+  <div class="motor-heading"><div><h3 id="motorTitle">Motor power <span>แบบ Stroke</span></h3>
+    <p>เลือกคะแนนแขน–ขา 4 ส่วน แล้วปรับรายช่องเฉพาะที่ต่างกัน</p></div>
+    <span id="motorProgress" aria-live="polite"></span></div>
+  <div class="motor-grid">
+{% endif %}
+<div class="motor-limb" data-motor-limb data-side="{{ f.motor_side }}">
+  <div class="field" data-field data-key="{{ key }}" data-type="select">
+    <label id="label_{{ key }}">{{ f.motor_label }} <span data-motor-value></span></label>
+    <div class="motor-scores" data-pills role="radiogroup" aria-labelledby="label_{{ key }}">
+      {% for score in range(6) %}
+      <label class="pill"><input type="radio" name="rg_{{ key }}" value="{{ score }}"
+        {% if val|string == score|string %}checked{% endif %}><span>{{ score }}</span></label>
+      {% endfor %}
+    </div>
+    <button type="button" class="motor-clear" data-motor-clear>ล้างคะแนนสรุป</button>
+  </div>
+  <details class="motor-details">
+    <summary>{{ f.motor_levels|join(' · ') }} <span data-motor-exceptions>ดู / แก้รายช่อง</span></summary>
+    <div class="motor-overrides">
+      {% for level in f.motor_levels %}
+      {% set destination = level ~ '_' ~ f.motor_side %}
+      {% set override = (values.get('_motor_overrides') or {}).get(destination, '') %}
+      <label>{{ level }}
+        <select data-motor-override="{{ destination }}" aria-label="{{ level }} {{ f.motor_label }}">
+          <option value="" {% if override == '' %}selected{% endif %}>ตามคะแนนสรุป</option>
+          {% for score in range(6) %}<option value="{{ score }}" {% if override|string == score|string %}selected{% endif %}>{{ score }}</option>{% endfor %}
+          <option value="unset" {% if override == 'unset' %}selected{% endif %}>เว้นว่าง</option>
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+  </details>
+</div>
+{% if f.get('motor_end') %}
+  </div>
+  <div class="motor-footer"><p>ค่าเริ่มต้น: แขน → C5–T1 · ขา → L2–S1 ด้านเดียวกัน<br>ช่องที่แก้แยกจะคงค่าไว้เมื่อเปลี่ยนคะแนนสรุป</p>
+  {% if config.get('nrefer_enabled', True) %}<button type="button" class="btn btn-primary" id="btnMotorFill">กรอก Motor power ใน nRefer</button>{% endif %}</div>
+  <p class="motor-note" id="motorFillNote">เปิดเคสที่ตรงกันและแท็บ 7 ในหน้าต่าง nRefer ของโปรแกรม แล้วตรวจคะแนนก่อนบันทึก</p>
+</section>
+{% endif %}

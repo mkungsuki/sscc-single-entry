@@ -24,6 +24,43 @@ input:invalid { border-color: #d33; background: #fff6f6; }
 .field > label { padding-top: 7px; font-size: 14px; }
 .field .hint { grid-column: 2; font-size: 12.5px; color: #777; }
 .field.hidden { display: none; }
+[hidden] { display:none !important; }
+.gcs-panel { margin:12px 0; padding:16px; border:1px solid #b9cedf; border-radius:8px; background:#f5faff; }
+.gcs-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-top:10px; }
+.gcs-grid .field { display:block; }
+.gcs-grid .field label { display:block; margin-bottom:6px; }
+.gcs-grid input { max-width:100%; }
+.source-note { color:#32644b; font-size:13px; padding:6px 0; }
+.motor-panel { margin:18px 0; padding:20px; border:1px solid #bbd9d4; border-radius:14px; background:#f3faf8; }
+.motor-heading,.motor-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.motor-heading h3 { margin:0; font-size:18px; color:#205d54; }
+.motor-heading h3 span { font-size:12px; font-weight:500; padding:4px 9px; border-radius:12px; background:#def0e9; margin-left:6px; }
+.motor-heading p,.motor-footer p,.motor-note { margin:6px 0; font-size:13px; color:#516963; line-height:1.6; }
+#motorProgress { font-size:13px; color:#205d54; white-space:nowrap; }
+.motor-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.motor-limb { background:white; border:1px solid #d5e5e0; border-radius:10px; padding:14px; min-width:0; }
+.motor-limb .field { display:block; padding:0; }
+.motor-limb .field > label { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:0; font-size:16px; font-weight:600; }
+[data-motor-value] { font-size:13px; color:#627570; font-weight:400; }
+.motor-scores { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }
+.motor-scores .pill span { display:flex; align-items:center; justify-content:center; padding:8px 0; min-height:44px; width:100%; font-size:18px; border-radius:8px; }
+.motor-scores .pill input:checked + span { background:#24695d; border-color:#24695d; }
+.motor-scores input:focus-visible + span { outline:3px solid #6296d6; outline-offset:2px; }
+.motor-clear { border:0; background:none; padding:8px 0; font:inherit; font-size:12px; color:#526861; cursor:pointer; }
+.motor-details { border-top:1px solid #e5eeeb; margin-top:4px; padding-top:10px; }
+.motor-details summary { cursor:pointer; font-size:12px; color:#516963; line-height:1.8; }
+[data-motor-exceptions] { display:block; color:#296d60; }
+.motor-overrides { display:grid; gap:8px; padding-top:10px; }
+.motor-overrides > label { display:grid; grid-template-columns:34px 1fr; align-items:center; gap:8px; font-size:13px; }
+.motor-overrides select { max-width:none; }
+.motor-footer .btn { background:#24695d; }
+@media(max-width:600px) {
+  .motor-grid { grid-template-columns:1fr; } .motor-panel { padding:12px; }
+  header { position:static; flex-wrap:wrap; gap:8px; padding:12px; }
+  header h1 { flex-basis:100%; } header > span[style] { display:none; }
+  header .btn { font-size:13px; padding:8px 10px; }
+}
+@media(max-width:720px) { .gcs-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .req { color: #d33; }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill { position: relative; }
@@ -31,6 +68,18 @@ input:invalid { border-color: #d33; background: #fff6f6; }
 .pill span { display: inline-block; padding: 6px 14px; border: 1px solid var(--border); border-radius: 16px; cursor: pointer; background: #fff; user-select: none; font-size: 14px; }
 .pill span:hover { border-color: var(--blue); }
 .pill input:checked + span { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pill input:focus-visible + span { outline: 3px solid #6296d6; outline-offset: 2px; }
+/* แถบหมวดติดหัว: กดข้ามหมวด + นับช่องที่ยังว่าง (แสดงทุกขนาดจอ) */
+#secbar { position: sticky; top: 46px; z-index: 45; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  background: #eef3f7; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 12px; font-size: 12.5px; }
+#secbar a { color: #345; text-decoration: none; padding: 3px 9px; border-radius: 12px; background: #fff; border: 1px solid var(--border); white-space: nowrap; }
+#secbar a.done { color: #1e8e4e; border-color: #bfe3cc; }
+#secbar a.cur { border-color: var(--blue); color: var(--blue); font-weight: 600; }
+#secbar .phase { margin-left: auto; display: flex; gap: 4px; }
+#secbar .phase button { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 3px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+#secbar .phase button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pf-hide { display: none !important; }
+@media(max-width:600px) { #secbar { position: static; } }
 .badge { padding: 2px 10px; border-radius: 12px; font-size: 12.5px; }
 .badge.draft { background: #fff3d6; color: var(--warn); }
 .badge.submitted { background: #dff3e6; color: var(--ok); }
@@ -57,7 +106,12 @@ th { background: #eef3f7; }
   <span style="flex:1"></span>
   {% block headerbtn %}{% endblock %}
 </header>
-<main>{% block content %}{% endblock %}</main>
+<main>
+<div id="browserSession" class="banner" hidden>
+  <span id="browserSessionText"></span>
+  <button id="browserFinish" class="btn" hidden onclick="finishBrowserReview()">จบรอบนี้ — คงเบราว์เซอร์ไว้</button>
+</div>
+{% block content %}{% endblock %}</main>
 <div id="toast"></div>
 <script>
 function toast(msg, ms=2600) {
@@ -65,6 +119,22 @@ function toast(msg, ms=2600) {
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), ms);
 }
+async function pollBrowserSession() {
+  try {
+    const d = await (await fetch('/browser/status')).json();
+    document.getElementById('browserSession').hidden = d.state === 'closed';
+    const labels = {idle:'พร้อมรับเคสถัดไป — ใช้หน้าต่าง Edge เดิม', working:'กำลังเตรียมหรือกรอกฟอร์ม — หากล็อกอินแล้ว ให้รอจนขึ้นว่ากรอกเสร็จ', review:'กรอกเสร็จแล้ว — ตรวจข้อมูลใน Edge และทำตามแถบคำแนะนำบนฟอร์ม', held:'กรอกยังไม่ครบ — เปิด Edge ตรวจจุดที่แจ้ง ก่อนจบรอบหรือลองใหม่', finishing:'กำลังจบรอบและกลับหน้าทะเบียน'};
+    document.getElementById('browserSessionText').textContent = (d.target ? d.target.toUpperCase() + ': ' : '') + (labels[d.state] || '');
+    document.getElementById('browserFinish').hidden = !['review','held'].includes(d.state);
+    window.dispatchEvent(new CustomEvent('browser-session', {detail:d}));
+  } catch (_) {}
+}
+async function finishBrowserReview() {
+  if (!confirm('จบรอบนี้และยกเลิกเคสที่เหลือในคิว? ข้อมูลบนฟอร์มที่ยังไม่บันทึกจะถูกทิ้ง แต่ข้อมูลในโปรแกรมยังอยู่ เบราว์เซอร์จะเปิดค้างไว้ หากเคยกดบันทึกแล้วให้ตรวจผลในทะเบียนก่อนส่งซ้ำ')) return;
+  const r = await fetch('/browser/finish', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({discard_unfinished:true})});
+  const d = await r.json(); if (!d.ok) toast(d.error); await pollBrowserSession();
+}
+pollBrowserSession(); setInterval(pollBrowserSession, 2500);
 </script>
 {% block scripts %}{% endblock %}
 </body>

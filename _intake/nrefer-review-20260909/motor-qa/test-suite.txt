@@ -1,0 +1,149 @@
+test_both_targets_dispatch_to_persistent_session (__main__.AppTests.test_both_targets_dispatch_to_persistent_session) ... ok
+test_browser_finish_requires_explicit_discard (__main__.AppTests.test_browser_finish_requires_explicit_discard) ... ok
+test_clinical_fields_are_adjacent_and_unique (__main__.AppTests.test_clinical_fields_are_adjacent_and_unique) ... ok
+test_duplicate_local_admission (__main__.AppTests.test_duplicate_local_admission) ... ok
+test_inspection_mode_is_forwarded_to_worker (__main__.AppTests.test_inspection_mode_is_forwarded_to_worker) ... ok
+test_preview_and_recovery_template (__main__.AppTests.test_preview_and_recovery_template) ... ok
+test_queue_deduplicates_ids_without_spawning_browser (__main__.AppTests.test_queue_deduplicates_ids_without_spawning_browser) ... ok
+test_reconcile_found_and_invalid_ref (__main__.AppTests.test_reconcile_found_and_invalid_ref) ... ok
+test_reconcile_requires_explicit_check_and_idle_worker (__main__.AppTests.test_reconcile_requires_explicit_check_and_idle_worker) ... ok
+test_app_template_javascript_compiles (__main__.BrowserTests.test_app_template_javascript_compiles) ... 127.0.0.1 - - [11/Sep/2026 03:15:27] "GET /beta/ HTTP/1.1" 200 -
+ok
+test_blocked_his_read_locks_dates_and_allowed_read_unlocks (__main__.BrowserTests.test_blocked_his_read_locks_dates_and_allowed_read_unlocks) ... 127.0.0.1 - - [11/Sep/2026 03:15:28] "GET /beta/ HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:15:28] "POST /his/refer/person HTTP/1.1" 200 -
+ok
+test_form_gcs_and_shared_fields_without_saving (__main__.BrowserTests.test_form_gcs_and_shared_fields_without_saving) ... 127.0.0.1 - - [11/Sep/2026 03:15:28] "GET /beta/ HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:15:28] "GET /browser/status HTTP/1.1" 404 -
+ok
+test_full_form_without_save (__main__.BrowserTests.test_full_form_without_save) ... 127.0.0.1 - - [11/Sep/2026 03:15:28] "GET /beta/ HTTP/1.1" 200 -
+ok
+test_gcs_keyboard_recalculates_total (__main__.BrowserTests.test_gcs_keyboard_recalculates_total) ... 127.0.0.1 - - [11/Sep/2026 03:15:33] "GET /beta/ HTTP/1.1" 200 -
+ok
+test_inspection_blocks_user_save_before_server (__main__.BrowserTests.test_inspection_blocks_user_save_before_server) ... 127.0.0.1 - - [11/Sep/2026 03:15:33] "GET /beta/ HTTP/1.1" 200 -
+ขั้นตอน: เปิดทะเบียน nRefer
+ขั้นตอน: รอปุ่ม Add new
+ขั้นตอน: รอช่อง HN ในฟอร์มเพิ่มข้อมูล
+ขั้นตอน: รอข้อมูลเริ่มต้นฟอร์มโหลดเสร็จก่อนกรอก HN/AN
+ขั้นตอน: กรอกและตรวจค่าฟอร์ม
+⚠️ เวลาเข้า Stroke Unit ใช้เวลารับไว้ใน รพ. (ward แรกรับคือ Stroke Unit)
+โหมดตรวจฟอร์ม: บล็อกการบันทึก — ตรวจช่องแล้วปิดหน้าต่าง
+จบโหมดตรวจฟอร์ม — คำขอเขียน API ถูกบล็อก
+ok
+test_missing_ward_is_warning (__main__.BrowserTests.test_missing_ward_is_warning) ... 127.0.0.1 - - [11/Sep/2026 03:15:39] "GET /beta/ HTTP/1.1" 200 -
+ok
+test_open_waits_for_form_initialization (__main__.BrowserTests.test_open_waits_for_form_initialization) ... 127.0.0.1 - - [11/Sep/2026 03:15:40] "GET /beta/ HTTP/1.1" 200 -
+ขั้นตอน: เปิดทะเบียน nRefer
+127.0.0.1 - - [11/Sep/2026 03:15:40] "GET /beta?slow_init=1/ HTTP/1.1" 200 -
+ขั้นตอน: รอปุ่ม Add new
+ขั้นตอน: รอช่อง HN ในฟอร์มเพิ่มข้อมูล
+ขั้นตอน: รอข้อมูลเริ่มต้นฟอร์มโหลดเสร็จก่อนกรอก HN/AN
+127.0.0.1 - - [11/Sep/2026 03:15:42] "GET /test/init HTTP/1.1" 200 -
+ok
+test_other_visit_save_is_not_success (__main__.BrowserTests.test_other_visit_save_is_not_success) ... 127.0.0.1 - - [11/Sep/2026 03:15:47] "GET /beta/ HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:15:47] "POST /api/beta/dmis/imc/save-patient HTTP/1.1" 200 -
+ok
+test_process_manual_save_and_resend (__main__.BrowserTests.test_process_manual_save_and_resend) ... 127.0.0.1 - - [11/Sep/2026 03:15:47] "GET /beta/ HTTP/1.1" 200 -
+ขั้นตอน: เปิดทะเบียน nRefer
+ขั้นตอน: รอปุ่ม Add new
+ขั้นตอน: รอช่อง HN ในฟอร์มเพิ่มข้อมูล
+ขั้นตอน: รอข้อมูลเริ่มต้นฟอร์มโหลดเสร็จก่อนกรอก HN/AN
+ขั้นตอน: กรอกและตรวจค่าฟอร์ม
+⚠️ เวลาเข้า Stroke Unit ใช้เวลารับไว้ใน รพ. (ward แรกรับคือ Stroke Unit)
+ตรวจข้อมูลทุกช่องแล้วกดบันทึกเอง
+127.0.0.1 - - [11/Sep/2026 03:15:53] "POST /api/beta/dmis/imc/save-patient HTTP/1.1" 200 -
+ยืนยัน response บันทึกตรง HN/AN/หน่วยงานแล้ว — เว็บไม่คืน ref ที่ยืนยันได้
+เคสนี้เคยบันทึกหรือรอยืนยันผล — ตรวจทะเบียน nRefer ก่อน ไม่เปิดเพิ่มข้อมูลซ้ำ
+ok
+test_process_no_save (__main__.BrowserTests.test_process_no_save) ... 127.0.0.1 - - [11/Sep/2026 03:15:53] "GET /beta/ HTTP/1.1" 200 -
+ขั้นตอน: เปิดทะเบียน nRefer
+ขั้นตอน: รอปุ่ม Add new
+ขั้นตอน: รอช่อง HN ในฟอร์มเพิ่มข้อมูล
+ขั้นตอน: รอข้อมูลเริ่มต้นฟอร์มโหลดเสร็จก่อนกรอก HN/AN
+ขั้นตอน: กรอกและตรวจค่าฟอร์ม
+⚠️ เวลาเข้า Stroke Unit ใช้เวลารับไว้ใน รพ. (ward แรกรับคือ Stroke Unit)
+ตรวจข้อมูลทุกช่องแล้วกดบันทึกเอง
+ไม่พบการกดบันทึกในรอบนี้ — จบการกรอก
+ok
+test_recovery_instructions_only_after_job_ends (__main__.BrowserTests.test_recovery_instructions_only_after_job_ends) ... 127.0.0.1 - - [11/Sep/2026 03:16:00] "GET /beta/ HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:00] "GET /browser/status HTTP/1.1" 404 -
+ok
+test_selected_date_and_unknown_time (__main__.BrowserTests.test_selected_date_and_unknown_time) ... 127.0.0.1 - - [11/Sep/2026 03:16:00] "GET /beta/ HTTP/1.1" 200 -
+ok
+test_slow_his_does_not_overwrite_source (__main__.BrowserTests.test_slow_his_does_not_overwrite_source) ... 127.0.0.1 - - [11/Sep/2026 03:16:04] "GET /beta/ HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:04] "GET /beta/?slow_his=1 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:06] "GET /test/his HTTP/1.1" 200 -
+ok
+test_auth_and_reference_methods_only (__main__.GuardTests.test_auth_and_reference_methods_only) ... ok
+test_his_reads_only_on_configured_base (__main__.GuardTests.test_his_reads_only_on_configured_base) ... ok
+test_ct_time_reuses_c5_only_when_selected (__main__.MappingTests.test_ct_time_reuses_c5_only_when_selected) ... ok
+test_gcs_conflict (__main__.MappingTests.test_gcs_conflict) ... ok
+test_invalid_calendar_date (__main__.MappingTests.test_invalid_calendar_date) ... ok
+test_invalid_token (__main__.MappingTests.test_invalid_token) ... ok
+test_tia_requires_explicit_mapping (__main__.MappingTests.test_tia_requires_explicit_mapping) ... ok
+test_unknowns_not_invented (__main__.MappingTests.test_unknowns_not_invented) ... ok
+test_zero_age_and_empty_carry (__main__.MappingTests.test_zero_age_and_empty_carry) ... ok
+test_main_form_keyboard_override_save_reload_and_layout (test_stroke_motor_cases.MotorBrowserTests.test_main_form_keyboard_override_save_reload_and_layout) ... 127.0.0.1 - - [11/Sep/2026 03:16:11] "GET /case/19 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:11] "GET /browser/status HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:11] "GET /case/19/status HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "POST /case/save HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /case/19 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /browser/status HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /case/19/status HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "POST /case/save HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "POST /case/19/nrefer/motor HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "POST /case/save HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /case/19 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /browser/status HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /case/19/status HTTP/1.1" 200 -
+ok
+test_review_button_fills_once_without_saving (test_stroke_motor_cases.MotorBrowserTests.test_review_button_fills_once_without_saving) ... 127.0.0.1 - - [11/Sep/2026 03:16:12] "GET /motor-target HTTP/1.1" 404 -
+Motor power: กรอกและอ่านกลับครบ 20 ช่องตาม stroke-limb-copy-v1; รอผู้ใช้บันทึก
+ok
+test_target_zero_override_and_no_save (test_stroke_motor_cases.MotorBrowserTests.test_target_zero_override_and_no_save) ... ok
+test_wrong_case_or_changed_contract_does_not_touch_table (test_stroke_motor_cases.MotorBrowserTests.test_wrong_case_or_changed_contract_does_not_touch_table) ... ok
+test_copy_all_grades_and_sides_with_override (test_stroke_motor_cases.MotorTests.test_copy_all_grades_and_sides_with_override) ... ok
+test_local_save_roundtrip_and_dispatch_saved_admission (test_stroke_motor_cases.MotorTests.test_local_save_roundtrip_and_dispatch_saved_admission) ... ok
+test_missing_is_not_zero_and_invalid_scores_fail (test_stroke_motor_cases.MotorTests.test_missing_is_not_zero_and_invalid_scores_fail) ... ok
+test_person_only_save_is_uncertain (__main__.ObserverTests.test_person_only_save_is_uncertain) ... ok
+test_response_ref_requires_matching_admission (__main__.ObserverTests.test_response_ref_requires_matching_admission) ... ok
+test_wrong_hospital_and_http_error (__main__.ObserverTests.test_wrong_hospital_and_http_error) ... ok
+test_wrong_origin_and_get_are_ignored (__main__.ObserverTests.test_wrong_origin_and_get_are_ignored) ... ok
+test_actual_sscc_filler_three_separate_jobs (test_browser_session_cases.SessionTests.test_actual_sscc_filler_three_separate_jobs) ... FAIL
+test_cannot_finish_during_fill (test_browser_session_cases.SessionTests.test_cannot_finish_during_fill) ... ok
+test_target_tabs_preserved_and_failure_does_not_close_them (test_browser_session_cases.SessionTests.test_target_tabs_preserved_and_failure_does_not_close_them) ... FAIL
+test_three_nrefer_cases_reuse_live_tab_without_login (test_browser_session_cases.SessionTests.test_three_nrefer_cases_reuse_live_tab_without_login) ... FAIL
+
+======================================================================
+FAIL: test_actual_sscc_filler_three_separate_jobs (test_browser_session_cases.SessionTests.test_actual_sscc_filler_three_separate_jobs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 158, in test_actual_sscc_filler_three_separate_jobs
+    self.wait_state('idle',timeout=70)
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 49, in wait_state
+    self.fail(f'Expected {state}, got {self.manager.status()}')
+AssertionError: Expected idle, got {'state': 'closed', 'target': None, 'current': None}
+
+======================================================================
+FAIL: test_target_tabs_preserved_and_failure_does_not_close_them (test_browser_session_cases.SessionTests.test_target_tabs_preserved_and_failure_does_not_close_them)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 114, in test_target_tabs_preserved_and_failure_does_not_close_them
+    self.wait_state('idle')
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 49, in wait_state
+    self.fail(f'Expected {state}, got {self.manager.status()}')
+AssertionError: Expected idle, got {'state': 'closed', 'target': None, 'current': None}
+
+======================================================================
+FAIL: test_three_nrefer_cases_reuse_live_tab_without_login (test_browser_session_cases.SessionTests.test_three_nrefer_cases_reuse_live_tab_without_login)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 85, in test_three_nrefer_cases_reuse_live_tab_without_login
+    self.wait_state('review')
+  File "C:\Users\kanpi\AppData\Local\Temp\sscc-nrefer-test-e_iiw88f\mock\test_browser_session_cases.py", line 49, in wait_state
+    self.fail(f'Expected {state}, got {self.manager.status()}')
+AssertionError: Expected review, got {'state': 'closed', 'target': None, 'current': None}
+
+----------------------------------------------------------------------
+Ran 47 tests in 210.428s
+
+FAILED (failures=3)

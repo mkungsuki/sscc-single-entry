@@ -18,3 +18,9 @@ app/data/edge_profile/
 __pycache__/
 *.pyc
 .DS_Store
+app/mock/mock_nrefer_store.json
+# สำเนา JS สาธารณะของ nRefer ที่ codex โหลดมาวิเคราะห์ (7 MB, โหลดใหม่ได้ตาม manifest.json)
+_intake/nrefer-review-20260909/public-phase2-20260911/*.js
+_intake/nrefer-review-20260909/public-phase2-20260911/index.html
+# sandbox ของ codex มีไฟล์ฐานข้อมูล — ห้ามเข้า git
+_intake/nrefer-review-20260909/sandbox/

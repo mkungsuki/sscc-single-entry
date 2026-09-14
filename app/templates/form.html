@@ -8,15 +8,36 @@
   <button class="btn btn-success" id="btnSubmit" {% if not case or case.status == 'imported' %}disabled{% endif %}>
     {%- if case and case.status == 'submitted' %}🔧 ส่งซ้ำ (เติมบนเว็บให้ครบ){% else %}🚀 ส่งเข้า SSCC{% endif -%}
   </button>
+  {% if config.get('nrefer_enabled', True) %}
+  <button class="btn" id="btnNrefer" style="background:#4a5bd6;color:#fff" {% if not case %}disabled{% endif %}
+          title="ส่งข้อมูลชุดเดียวกันเข้าทะเบียน Stroke & IMC (DMIS) ของ nRefer กระทรวง">
+    {%- if case and case.nrefer_ref %}☁ ตรวจรายการ nRefer{% else %}☁ กรอกฟอร์ม nRefer{% endif -%}
+  </button>
+  {% endif %}
 {% endblock %}
 {% block content %}
+
+{% if case and not case.nrefer_ref %}
+<div class="card" id="nreferRecovery" hidden style="border:1px solid #b9cedf;padding:16px;margin-bottom:16px">
+  <strong>ตรวจว่าเคสนี้บันทึกใน nRefer แล้วหรือยัง</strong>
+  <p>โปรแกรมยังยืนยันผลรอบก่อนไม่ได้ ก่อนกรอกซ้ำ ให้เปิดทะเบียน nRefer แล้วค้น HN <b>{{ values.get('x_a2','') }}</b> และ AN <b>{{ values.get('cf_an','') }}</b> เทียบวันที่รับไว้และจำหน่าย เพื่อไม่สร้างรายการซ้ำ</p>
+  <a class="btn" href="{{ config.get('nrefer_base_url', 'https://nrefer.moph.go.th/beta') }}/#/dmis/patient" target="_blank" rel="noopener">เปิดทะเบียน nRefer</a>
+  <label style="display:flex;align-items:center;gap:8px;margin:12px 0"><input type="checkbox" id="nreferChecked" style="width:auto;margin:0"> ตรวจเลขผู้ป่วยและวันที่รักษาในทะเบียนแล้ว</label>
+  <button class="btn" type="button" onclick="reconcileNrefer('found')">มีรายการนี้แล้ว — ไม่กรอกซ้ำ</button>
+  <button class="btn" type="button" onclick="reconcileNrefer('not_found')">ยังไม่มีรายการนี้ — ให้กรอกใหม่</button>
+  <details style="margin-top:12px"><summary>ระบุเลขอ้างอิงรายการ (ถ้าทราบ)</summary><label>เลขอ้างอิงจาก nRefer <input id="nreferFoundRef" inputmode="numeric" style="width:150px"></label><p>เว้นว่างได้ ไม่ใช่ HN หรือ AN</p></details>
+</div>
+{% endif %}
 
 {% set sections = [] %}
 {% for f in fields %}{% if f.section_title not in sections %}{% set _ = sections.append(f.section_title) %}{% endif %}{% endfor %}
 
-<nav id="secnav">
-  {% for s in sections %}<a href="#sec{{ loop.index }}">{{ s.split('(')[0] }}</a>{% endfor %}
-</nav>
+<div id="secbar" aria-label="หมวดของฟอร์ม">
+  {% for s in sections %}<a href="#sec{{ loop.index }}" data-sec="sec{{ loop.index }}">{{ s.split('(')[0] }}</a>{% endfor %}
+  <span class="phase" title="โหมดจำหน่าย = โชว์เฉพาะช่องที่รู้ค่าตอนจำหน่าย (ค่าที่กรอกแล้วไม่หาย)">
+    <button type="button" data-phase="all" class="on">ทั้งหมด</button><button type="button" data-phase="discharge">เฉพาะตอนจำหน่าย</button>
+  </span>
+</div>
 
 <form id="mainForm" onsubmit="return false">
 {% set ns = namespace(sec='', idx=0) %}
@@ -28,7 +49,11 @@
   {% endif %}
   {% set key = field_key(f) %}
   {% set val = values.get(key, f.get('default', '')) %}
-  <div class="field" data-field data-key="{{ key }}" data-type="{{ f.type }}">
+  {% if f.get('motor_limb') %}
+    {% include "motor_limb.html" %}
+  {% else %}
+  {% if f.get('group_start') %}<div class="gcs-panel"><strong>GCS แรกรับ — กรอกคะแนนรวม หรือกรอก E/V/M ให้คำนวณรวม</strong><div class="gcs-grid">{% endif %}
+  <div class="field" data-field data-key="{{ key }}" data-type="{{ f.type }}" data-phase="{{ f.get('phase', 'admit') }}">
     <label>{{ f.label }}{% if f.get('required') %} <span class="req">*</span>{% endif %}</label>
     <div>
     {% if f.type == 'select' and f.get('options', [])|length <= 4 and not f.get('special') %}
@@ -72,9 +97,18 @@
              {% if f.get('step') %}step="{{ f.step }}"{% endif %}
              {% if f.get('required') %}required{% endif %}>
     {% elif f.type == 'date' %}
-      <input type="date" data-input value="{{ val }}" {% if f.get('required') %}required{% endif %}>
+      {# ช่องวันที่แบบพิมพ์ วว/ดด/ปปปป (พ.ศ.) — ไม่ใช้ <input type="date"> เพราะ Windows ภาษาอังกฤษบังคับ ดด/วว/ค.ศ.
+         รับ 010969 / 1/9/69 / 01/09/2569 / 2026-09-01 ได้หมด เก็บเป็น ISO เหมือนเดิม (valueOf แปลงให้) #}
+      <input type="text" data-input data-date-th inputmode="numeric" autocomplete="off" maxlength="10"
+             value="{{ val }}" placeholder="วว/ดด/ปปปป" style="max-width:150px"
+             title="วันที่ พ.ศ. เช่น 01/09/2569 (พิมพ์ 010969 ก็ได้)" {% if f.get('required') %}required{% endif %}>
     {% elif f.type == 'time' %}
-      <input type="time" data-input step="60" value="{{ val }}" {% if f.get('required') %}required{% endif %}>
+      {# ช่องเวลาแบบ 24 ชม. — ไม่ใช้ <input type="time"> เพราะ Windows ภาษาอังกฤษโชว์ AM/PM ทำให้กดผิดบ่อย
+         พิมพ์ 2100 / 21.00 / 21:00 ได้หมด โปรแกรมจัดเป็น 21:00 ให้เอง (ค่าที่เก็บยังเป็น HH:MM เหมือนเดิม) #}
+      <input type="text" data-input data-time24 inputmode="numeric" autocomplete="off" maxlength="5"
+             value="{{ val }}" placeholder="ชม:นาที เช่น 21:00" style="max-width:150px"
+             pattern="([01][0-9]|2[0-3]):[0-5][0-9]" title="เวลาแบบ 24 ชม. เช่น 09:30 หรือ 21:00"
+             {% if f.get('required') %}required{% endif %}>
     {% elif f.type == 'textarea' %}
       <textarea data-input rows="2">{{ val }}</textarea>
     {% elif f.get('special') == 'cascade_hospital' %}
@@ -91,6 +125,8 @@
     </div>
     {% if f.get('hint') %}<div class="hint">{{ f.hint }}</div>{% endif %}
   </div>
+  {% if f.get('group_end') %}</div><div id="gcsSummary" class="hint" aria-live="polite"></div><button type="button" class="btn" id="gcsUseTotal" hidden>ใช้คะแนนรวมจาก E/V/M</button></div>{% endif %}
+  {% endif %}
 {% endfor %}
 {% if ns.sec %}</div>{% endif %}
 </form>
@@ -123,6 +159,21 @@
   </div>
 </div>
 
+<!-- ตรวจข้อมูลก่อนเปิดฟอร์ม nRefer; ผู้ใช้บันทึกบนเว็บเอง -->
+<div id="nreferModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:90;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:20px 22px;max-width:720px;width:94%;max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 6px;font-size:16px;color:#4a5bd6">☁ ข้อมูลที่จะส่งเข้า nRefer (Stroke & IMC)</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 10px" id="nreferSub"></p>
+    <table id="nreferTable" style="font-size:13.5px;margin-bottom:10px"></table>
+    <ul id="nreferNotes" style="margin:0 0 12px;padding-left:20px;font-size:13px;color:#8a5a00;line-height:1.5"></ul>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeNrefer()">← กลับ</button>
+      <button class="btn" onclick="confirmNrefer(true)">ตรวจฟอร์ม — บล็อกบันทึก</button>
+      <button class="btn btn-primary" style="background:#4a5bd6" onclick="confirmNrefer()">เปิด Edge กรอกฟอร์มให้ →</button>
+    </div>
+  </div>
+</div>
+
 <div class="card" id="fillLogCard" style="display:none">
   <h2>สถานะการส่งเข้า SSCC</h2>
   <pre id="fillLog" style="white-space:pre-wrap;font-size:13px;margin:0"></pre>
@@ -150,11 +201,83 @@ function valueOf(box) {
     return checked ? checked.value : '';
   }
   const inp = box.querySelector('[data-input]');
-  return inp ? inp.value.trim() : '';
+  if (!inp) return '';
+  if (inp.dataset.dateTh !== undefined) return parseDateTh(inp.value) || '';   // เก็บ ISO เสมอ
+  return inp.value.trim();
 }
 
+// ---- ช่องวันที่ วว/ดด/ปปปป (พ.ศ.): พิมพ์ได้หลายแบบ เก็บ ISO ----
+const THIS_YEAR = new Date().getFullYear();
+function isoDate(y, m, d) {
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function fromDMY(d, m, ystr) {
+  let y = +ystr;
+  if (ystr.length === 2) { y = 2500 + y; if (y - 543 > THIS_YEAR + 1) y -= 100; }   // 69 → 2569, 95 → 2495
+  if (y > 2400) y -= 543;                                                            // พ.ศ. → ค.ศ.
+  if (y < 1900 || y > THIS_YEAR + 1) return null;
+  return isoDate(y, m, d);
+}
+function parseDateTh(raw) {
+  raw = (raw || '').trim();
+  if (!raw) return '';
+  let m;
+  if ((m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) return isoDate(+m[1], +m[2], +m[3]);
+  if ((m = raw.match(/^(\d{1,2})[\/.\-\s](\d{1,2})[\/.\-\s](\d{2}|\d{4})$/))) return fromDMY(+m[1], +m[2], m[3]);
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 6 || digits.length === 8) return fromDMY(+digits.slice(0, 2), +digits.slice(2, 4), digits.slice(4));
+  return null;
+}
+function showDateTh(iso) { const m = (iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${+m[1] + 543}` : (iso || ''); }
+document.querySelectorAll('[data-date-th]').forEach(inp => {
+  if (inp.value) inp.value = showDateTh(inp.value);   // ค่าจากฐาน (ISO) → โชว์แบบไทย
+  inp.addEventListener('input', () => {
+    inp.setCustomValidity('');
+    if (/^\d{8}$/.test(inp.value)) inp.value = inp.value.slice(0, 2) + '/' + inp.value.slice(2, 4) + '/' + inp.value.slice(4);
+  });
+  inp.addEventListener('blur', () => {
+    const iso = parseDateTh(inp.value);
+    if (iso === null) { inp.setCustomValidity('วันที่ไม่ถูกต้อง — ใส่ วว/ดด/ปปปป เช่น 01/09/2569'); inp.reportValidity(); return; }
+    inp.setCustomValidity('');
+    const shown = showDateTh(iso);
+    if (shown !== inp.value) { inp.value = shown; inp.dispatchEvent(new Event('input', {bubbles: true})); }
+  });
+});
+
+// ---- ช่องเวลา 24 ชม.: รับ 2100 / 21.00 / 21:00 / 9.5 → จัดเป็น HH:MM ----
+function normTime24(raw) {
+  let v = (raw || '').trim().replace(/[^\d:.,\s]/g, '');
+  if (!v) return '';
+  let h, m;
+  const sep = v.match(/^(\d{1,2})[:.,\s]+(\d{1,2})$/);
+  if (sep) { h = +sep[1]; m = +sep[2]; }
+  else {
+    const d = v.replace(/\D/g, '');
+    if (d.length <= 2) { h = +d; m = 0; }
+    else if (d.length === 3) { h = +d[0]; m = +d.slice(1); }
+    else if (d.length === 4) { h = +d.slice(0, 2); m = +d.slice(2); }
+    else return null;
+  }
+  if (isNaN(h) || isNaN(m) || h > 23 || m > 59) return null;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+document.querySelectorAll('[data-time24]').forEach(inp => {
+  inp.addEventListener('input', () => {
+    inp.setCustomValidity('');
+    if (/^\d{4}$/.test(inp.value)) inp.value = inp.value.slice(0, 2) + ':' + inp.value.slice(2);
+  });
+  inp.addEventListener('blur', () => {
+    const n = normTime24(inp.value);
+    if (n === null) { inp.setCustomValidity('เวลาไม่ถูกต้อง — ใส่แบบ 24 ชม. เช่น 09:30 หรือ 21:00'); inp.reportValidity(); return; }
+    inp.setCustomValidity('');
+    if (n !== inp.value) { inp.value = n; inp.dispatchEvent(new Event('input', {bubbles: true})); }
+  });
+});
+
 // ปุ่มกดติ๊ก: กดปุ่มที่เลือกอยู่ซ้ำ = ยกเลิกการเลือก
-document.querySelectorAll('[data-pills] input[type=radio]').forEach(r => {
+document.querySelectorAll('[data-pills]:not(.motor-scores) input[type=radio]').forEach(r => {
   r.addEventListener('mousedown', () => { r._was = r.checked; });
   r.addEventListener('click', () => {
     if (r._was) r.checked = false;
@@ -183,6 +306,12 @@ function collect() {
     const v = valueOf(box);
     if (Array.isArray(v) ? v.length : v !== '') data[box.dataset.key] = v;
   });
+  if (document.querySelector('[data-motor-limb]')) {
+    data._motor_overrides = {};
+    document.querySelectorAll('[data-motor-override]').forEach(select => {
+      if (select.value !== '') data._motor_overrides[select.dataset.motorOverride] = select.value;
+    });
+  }
   return data;
 }
 
@@ -280,6 +409,7 @@ async function confirmAck() {
 document.getElementById('btnSave').onclick = () => saveDraft();
 
 document.getElementById('btnSubmit').onclick = async () => {
+  if ({{ (case.nrefer_ref if case else none) | tojson }}) { window.open({{ (config.get('nrefer_base_url', 'https://nrefer.moph.go.th/beta') + '/#/dmis/patient') | tojson }}, '_blank', 'noopener'); return; }
   if (!(await saveDraft(true))) return;
   if (blockingWarnings.length) { ackThenSubmit = true; openAck(blockingWarnings); return; }
   doSubmit();
@@ -300,6 +430,244 @@ async function doSubmit() {
   document.getElementById('btnSubmit').disabled = true;
   document.getElementById('fillLogCard').style.display = '';
   pollStatus();
+}
+
+// ---- ส่งเข้า nRefer: ดูข้อมูลที่แปลงแล้วก่อน → ยิง API → ติดตามล็อก ----
+const btnNrefer = document.getElementById('btnNrefer');
+async function reconcileNrefer(outcome) {
+  if (!document.getElementById('nreferChecked').checked) { toast('กรุณาตรวจทะเบียน HN/AN ก่อน', 5000); return; }
+  const response = await fetch(`/case/${caseId}/nrefer/reconcile`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({checked_register: true, outcome, ref: document.getElementById('nreferFoundRef').value})
+  });
+  const result = await response.json();
+  if (!result.ok) { toast(result.error, 5000); return; }
+  location.reload();
+}
+
+function fieldValue(key) { const b = fieldBox(key); return b ? valueOf(b) : ''; }
+function fieldInput(key) { return fieldBox(key)?.querySelector('[data-input]'); }
+function syncGcs(edited=false) {
+  const keys = ['cf_nrefer_gcs_eye','cf_nrefer_gcs_verbal','cf_nrefer_gcs_motor'];
+  const total = fieldInput('x_b7'), note = document.getElementById('gcsSummary');
+  if (!total || !note) return;
+  const parts = keys.map(fieldValue), complete = parts.every((v,i) => /^\d+$/.test(v) && +v >= 1 && +v <= [4,5,6][i]);
+  const sum = parts.reduce((a,v) => a + Number(v || 0), 0);
+  if (complete && (edited || total.value === '')) total.value = String(sum);
+  total.readOnly = complete;
+  const mismatch = complete && Number(total.value) !== sum;
+  note.textContent = mismatch ? `คะแนนรวมเดิม ${total.value} ไม่ตรงกับ E/V/M = ${sum} — ตรวจแล้วเลือกใช้ผลรวมด้านล่าง` :
+    complete ? `E${parts[0]} + V${parts[1]} + M${parts[2]} = ${sum} — ใช้คะแนนรวมนี้ร่วมกัน ไม่ต้องกรอกซ้ำ` :
+    'ถ้ามีเฉพาะคะแนนรวม กรอกช่องรวมได้เลย ไม่ต้องเดา E/V/M; เมื่อกรอกครบจะคำนวณรวมให้';
+  document.getElementById('gcsUseTotal').hidden = !mismatch;
+}
+document.getElementById('gcsUseTotal')?.addEventListener('click', () => {syncGcs(true); dirty=true; liveCheck();});
+
+function clinicalConditions() {
+  function display(key, show, text='') {
+    const box = fieldBox(key); if (!box) return;
+    // Hide visually only: preserve existing values in collect(), including overrides.
+    box.hidden = !show && fieldValue(key) === '';
+    let note = document.getElementById('source_' + key);
+    if (!note) { note=document.createElement('div'); note.id='source_'+key; note.className='source-note'; box.after(note); }
+    note.textContent = text; note.hidden = !text;
+  }
+  const dx = fieldValue('x_b6') || fieldValue('x_b5');
+  display('cf_nrefer_dx',['3','5'].includes(dx), ['1','2','4'].includes(dx) ? 'ใช้วินิจฉัยข้างต้นสำหรับ nRefer โดยอัตโนมัติ ไม่ต้องเลือกรหัสซ้ำ' : '');
+  const wards = {'7883':'Stroke Unit','7885':'อายุรกรรมชาย','7884':'อายุรกรรมหญิง'};
+  const ward = wards[fieldValue('x_b1_1')];
+  // ยังไม่เลือก B1.1 = ยังไม่รู้ว่าจับคู่ได้ไหม → ไม่ต้องถาม
+  display('cf_nrefer_ward',!ward && fieldValue('x_b1_1') !== '',ward ? `ใช้ Ward ที่รับวันแรก: ${ward}${fieldValue('cf_nrefer_ward') ? ' — มีค่าระบุแยกด้านบน โปรดตรวจ' : ' ไม่ต้องกรอกซ้ำ'}` : '');
+  const dead = fieldValue('x_c20') === '1', referred = fieldValue('x_b4_1') === '2';
+  display('cf_nrefer_visit_result',!dead && !referred,dead ? 'ผลจำหน่ายใช้ “เสียชีวิต” จาก C20' : referred ? 'ผลจำหน่ายใช้ “ส่งต่อ” จาก B4.1' : '');
+  const ct = fieldValue('cf_nrefer_ctscan') === '1', reuseCt = fieldValue('cf_nrefer_ct_use_c5') === '1';
+  display('cf_nrefer_ct_use_c5',ct);
+  for (const key of ['cf_nrefer_ct_date','cf_nrefer_ct_time']) {
+    display(key,ct && !reuseCt);
+    if (reuseCt && fieldBox(key)) fieldBox(key).hidden=true;
+  }
+  const ctNote=document.getElementById('source_cf_nrefer_ct_use_c5');
+  if (ct && reuseCt && ctNote) { ctNote.hidden=false; ctNote.textContent=`ใช้วันที่ ${fieldValue('x_c5_date') || '(ยังไม่ระบุ)'} เวลา ${fieldValue('x_c5_hhmm') || '(ยังไม่ระบุ)'} จาก C5`; }
+  const su = fieldValue('x_c10') === '1', fromAdmit = fieldValue('x_b1_1') === '7883';
+  const admitDate = showDateTh(fieldValue('x_b3_2_date'));
+  display('cf_nrefer_su_date',su && !fromAdmit,su && fromAdmit ? `เข้า Stroke Unit ตั้งแต่แรกรับ: ${admitDate || 'ยังไม่ได้ระบุวันที่'} เวลา ${fieldValue('x_b3_2_hhmm') || 'ยังไม่ได้ระบุเวลา'} — ใช้ข้อมูลรับไว้ B3.2${fieldValue('cf_nrefer_su_date') ? ' (มีวันที่ระบุแยกด้านบน ให้ตรวจค่าที่จะใช้)' : ' ไม่ต้องกรอกซ้ำ'}` : '');
+  display('cf_nrefer_su_time',su && !fromAdmit);
+  for (const key of ['cf_nrefer_surgery_date','cf_nrefer_surgery_time','cf_nrefer_surgery_end_date','cf_nrefer_surgery_end_time']) display(key,fieldValue('x_d2')==='2');
+}
+// ---- ค่าเริ่มต้นจากคำตอบที่มีอยู่แล้ว: ตั้งให้เมื่อช่องยังว่าง (เห็นได้ แก้ได้) ถ้าคำตอบต้นทางเปลี่ยนและยังเป็นค่าที่โปรแกรมตั้ง จะตั้งใหม่ตาม ----
+function autoDefault(key, value, note, keepOptions) {
+  const box = fieldBox(key); if (!box) return;
+  const current = fieldValue(key);
+  const pills = box.querySelector('[data-pills]');
+  const wasAuto = box.dataset.autoValue !== undefined && current === box.dataset.autoValue;
+  // ซ่อนตัวเลือกที่ขัดกับคำตอบต้นทาง — แต่ถ้าผู้ใช้เลือกตัวที่จะถูกซ่อนไว้เอง ให้โชว์ทั้งหมดต่อไป
+  const hideSome = pills && keepOptions && (current === '' || wasAuto || keepOptions.includes(current));
+  if (pills) pills.querySelectorAll('.pill').forEach(p => { p.hidden = hideSome ? !keepOptions.includes(p.querySelector('input').value) : false; });
+  if (current === '' || wasAuto) {
+    if (value !== null && value !== current) {
+      const input = pills ? pills.querySelector(`input[value="${CSS.escape(value)}"]`) : box.querySelector('[data-input]');
+      if (input) { if (pills) input.checked = true; else input.value = value; box.dataset.autoValue = value; }
+    } else if (value === null && wasAuto) {
+      if (pills) pills.querySelectorAll('input').forEach(i => { i.checked = false; }); else box.querySelector('[data-input]').value = '';
+      delete box.dataset.autoValue;
+    }
+  }
+  let n = document.getElementById('auto_' + key);
+  if (!n) { n = document.createElement('div'); n.id = 'auto_' + key; n.className = 'source-note'; box.after(n); }
+  const isAuto = box.dataset.autoValue !== undefined && fieldValue(key) === box.dataset.autoValue && fieldValue(key) !== '';
+  n.textContent = isAuto ? note : ''; n.hidden = !isAuto;
+}
+function smartDefaults() {
+  applyConditions();   // ให้ช่องที่เพิ่งเปิดตามเงื่อนไข (เช่น จังหวัด) ถูกนับว่ามองเห็นแล้วในรอบนี้
+  const ems = fieldValue('x_a6_1');
+  autoDefault('cf_nrefer_carry', ems === 'Y' ? 'EMS' : ems === 'N' ? 'RELATE' : null,
+    ems === 'Y' ? 'ตั้งให้ตาม A6.1 (มาด้วย EMS) — ถ้าเป็น EMS ท้องถิ่นเปลี่ยนได้' : 'ตั้งให้ตาม A6.1 (ไม่ได้มาด้วย EMS) — ถ้ามาเองเปลี่ยนได้',
+    ems === 'Y' ? ['EMS','FR'] : ems === 'N' ? ['SELF','RELATE'] : null);
+  const c5 = fieldValue('x_c5');
+  autoDefault('cf_nrefer_ctscan', ['1','2','3'].includes(c5) ? '1' : c5 === '4' ? '2' : null,
+    c5 === '4' ? 'ตั้งให้ตาม C5 = ไม่ได้รับการตรวจ' : 'ตั้งให้ตาม C5 = ได้รับการตรวจ — ถ้า C5 เป็น MRI ไม่ใช่ CT ให้เปลี่ยนเป็น ไม่ได้ทำ CT');
+  autoDefault('cf_nrefer_ct_use_c5', fieldValue('cf_nrefer_ctscan') === '1' && fieldValue('x_c5_date') ? '1' : null, '');   // ข้อความบอกที่มามีอยู่แล้ว (source_ ของ clinicalConditions)
+  const dead = fieldValue('x_c20') === '1', referred = fieldValue('x_b4_1') === '2';
+  autoDefault('cf_nrefer_visit_result', !dead && !referred && fieldValue('x_b4_date') ? '1' : null,
+    'ตั้งให้เป็น ทุเลา/กลับบ้าน เพราะมีวันจำหน่ายและไม่ได้ระบุเสียชีวิต/ส่งต่อ — แก้ได้');
+  for (const key of ['x_a6_address','x_b4_1_address']) {
+    const box = fieldBox(key); if (!box || box.classList.contains('hidden')) continue;
+    autoDefault(key, '400000', 'ตั้งจังหวัดเป็นขอนแก่นให้ก่อน — เปลี่ยนได้');
+  }
+}
+document.getElementById('mainForm').addEventListener('input', event => {
+  syncGcs(['cf_nrefer_gcs_eye','cf_nrefer_gcs_verbal','cf_nrefer_gcs_motor'].includes(event.target.closest('[data-key]')?.dataset.key));
+  smartDefaults();
+  clinicalConditions();
+});
+syncGcs(); smartDefaults(); clinicalConditions();
+
+// ---- แถบหมวด: นับช่องที่ยังว่างต่อหมวด + ไฮไลต์หมวดที่กำลังดู + โหมดจำหน่าย ----
+let phaseMode = 'all';
+try { phaseMode = localStorage.getItem('sscc_phase') || 'all'; } catch (e) {}
+function applyPhase() {
+  const disc = phaseMode === 'discharge';
+  document.querySelectorAll('[data-field]').forEach(box => box.classList.toggle('pf-hide', disc && box.dataset.phase !== 'discharge'));
+  document.querySelectorAll('.motor-panel, .gcs-panel').forEach(p => p.classList.toggle('pf-hide', disc));
+  document.querySelectorAll('.card[id^=sec]').forEach(card => {
+    const any = [...card.querySelectorAll('[data-field]')].some(b => !b.classList.contains('pf-hide') && !b.classList.contains('hidden') && !b.hidden);
+    card.classList.toggle('pf-hide', disc && !any);
+  });
+  document.querySelectorAll('#secbar [data-phase]').forEach(b => b.classList.toggle('on', b.dataset.phase === phaseMode));
+  updateSecbar();
+}
+document.querySelectorAll('#secbar [data-phase]').forEach(b => b.addEventListener('click', () => {
+  phaseMode = b.dataset.phase;
+  try { localStorage.setItem('sscc_phase', phaseMode); } catch (e) {}
+  applyPhase();
+}));
+function updateSecbar() {
+  document.querySelectorAll('#secbar a[data-sec]').forEach(a => {
+    const card = document.getElementById(a.dataset.sec);
+    if (!card) return;
+    const boxes = [...card.querySelectorAll('[data-field]')].filter(b => !b.classList.contains('hidden') && !b.hidden && !b.classList.contains('pf-hide'));
+    const empty = boxes.filter(b => { const v = valueOf(b); return Array.isArray(v) ? !v.length : v === ''; }).length;
+    a.textContent = a.textContent.replace(/\s*·.*$/, '') + (boxes.length ? ` · ว่าง ${empty}` : '');
+    a.classList.toggle('done', boxes.length > 0 && empty === 0);
+    a.hidden = card.classList.contains('pf-hide');
+  });
+}
+let secTimer = null;
+document.getElementById('mainForm').addEventListener('input', () => { clearTimeout(secTimer); secTimer = setTimeout(updateSecbar, 300); });
+window.addEventListener('scroll', () => {
+  let cur = null;
+  document.querySelectorAll('.card[id^=sec]').forEach(c => { if (!c.classList.contains('pf-hide') && c.getBoundingClientRect().top <= 120) cur = c.id; });
+  document.querySelectorAll('#secbar a[data-sec]').forEach(a => a.classList.toggle('cur', a.dataset.sec === cur));
+}, {passive: true});
+applyPhase();
+function syncMotor() {
+  let complete = 0, limbs = 0;
+  document.querySelectorAll('[data-motor-limb]').forEach(limb => {
+    limbs++;
+    const selected = limb.querySelector('.motor-scores input:checked');
+    const value = selected ? selected.value : '';
+    if (value !== '') complete++;
+    limb.querySelector('[data-motor-value]').textContent = value === '' ? 'ยังไม่ระบุ' : value + '/5';
+    const overrides = [...limb.querySelectorAll('[data-motor-override]')];
+    overrides.forEach(select => { select.options[0].textContent = value === '' ? 'ตามสรุป (ยังว่าง)' : `ตามสรุป (${value})`; });
+    const count = overrides.filter(select => select.value !== '').length;
+    limb.querySelector('[data-motor-exceptions]').textContent = count ? `แก้แยก ${count} ช่อง` : 'ดู / แก้รายช่อง';
+  });
+  const progress = document.getElementById('motorProgress');
+  if (progress) progress.textContent = `ระบุแล้ว ${complete}/${limbs} ส่วน`;
+}
+document.querySelectorAll('[data-motor-clear]').forEach(button => button.addEventListener('click', () => {
+  const limb = button.closest('[data-motor-limb]');
+  limb.querySelectorAll('.motor-scores input').forEach(input => {input.checked = false;});
+  limb.dispatchEvent(new Event('input', {bubbles:true}));
+}));
+document.getElementById('mainForm').addEventListener('input', syncMotor);
+syncMotor();
+document.getElementById('btnMotorFill')?.addEventListener('click', async () => {
+  if (!await saveDraft(true)) return;
+  try {
+    const response = await fetch(`/case/${caseId}/nrefer/motor`, {method:'POST'});
+    const result = await response.json();
+    if (!result.ok) {toast(result.error, 6000); return;}
+    document.getElementById('motorFillNote').textContent = 'เปิดเคสที่ตรงกันและแท็บ 7 ในหน้าต่าง nRefer แล้วกด “เติมคะแนนในตารางนี้”';
+    toast('เปิดหน้าต่าง nRefer เพื่อกรอก Motor power', 5000);
+  } catch {toast('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง', 5000);}
+});
+window.addEventListener('browser-session', async event => {
+  const box = document.getElementById('nreferRecovery');
+  if (!box || !caseId) return;
+  if (!['closed','idle'].includes(event.detail.state)) { box.hidden = true; return; }
+  try {
+    const status = await (await fetch(`/case/${caseId}/status`)).json();
+    box.hidden = !status.ok || status.fill_running || !!status.nrefer_ref || !['review','uncertain'].includes(status.nrefer_state);
+  } catch (_) { box.hidden = true; }
+});
+if (btnNrefer) btnNrefer.onclick = async () => {
+  if ({{ (case.nrefer_ref if case else none) | tojson }}) { window.open({{ (config.get('nrefer_base_url', 'https://nrefer.moph.go.th/beta') + '/#/dmis/patient') | tojson }}, '_blank', 'noopener'); return; }
+  if (!(await saveDraft(true))) return;
+  if (blockingWarnings.length) { toast('❌ มีเวลาขัดกันชัดเจน — แก้หรือรับทราบพร้อมเหตุผลก่อนส่ง nRefer'); toggleDq(true); return; }
+  const d = await (await fetch(`/case/${caseId}/nrefer/preview`)).json();
+  if (!d.ok) { toast('❌ ' + d.error, 5000); return; }
+  const table = document.getElementById('nreferTable');
+  table.replaceChildren();
+  for (const pair of d.summary) {
+    const row = document.createElement('tr');
+    for (const value of pair) { const cell = document.createElement('td'); cell.textContent = value ?? ''; row.appendChild(cell); }
+    table.appendChild(row);
+  }
+  const notes = document.getElementById('nreferNotes');
+  notes.replaceChildren();
+  for (const note of d.notes) { const li = document.createElement('li'); li.textContent = note; notes.appendChild(li); }
+  document.getElementById('nreferSub').textContent = d.nrefer_ref
+    ? `เคสนี้เคยบันทึกบน nRefer แล้ว (ref ${d.nrefer_ref} เมื่อ ${d.nrefer_at || ''}) — ตรวจ/แก้รายการเดิมจากทะเบียน nRefer`
+    : 'โปรแกรมจะเปิด Edge (login ThaID ถ้ายังไม่ได้) แล้วกรอกฟอร์ม "เพิ่มข้อมูล" ของ nRefer ให้ตามตารางนี้ จากนั้นหยุดรอ — ตรวจ เติม ward/IMC แล้วกดปุ่ม [บันทึก] ของ nRefer เอง โปรแกรมไม่กดให้';
+  document.getElementById('nreferModal').style.display = 'flex';
+};
+function closeNrefer() { document.getElementById('nreferModal').style.display = 'none'; }
+let nreferStartAt = null;
+async function confirmNrefer(noSave = false) {
+  closeNrefer();
+  const res = await fetch(`/case/${caseId}/nrefer/submit`, {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({no_save: noSave})});
+  const d = await res.json();
+  if (!d.ok) { toast('❌ ' + d.error, 5000); return; }
+  nreferStartAt = {{ (case.nrefer_at if case else none) | tojson }};
+  document.getElementById('fillLogCard').style.display = '';
+  toast(noSave ? 'เปิดโหมดตรวจฟอร์ม — บล็อกการบันทึก ตรวจเสร็จแล้วกดจบรอบนี้ โดยคง Edge ไว้' : '☁ เปิด Edge แล้ว — รอกรอกเสร็จแล้วตรวจข้อมูลก่อนบันทึก (ถ้ายังไม่ได้ login ให้สแกน ThaID ก่อน)', 6000);
+  pollNrefer();
+}
+async function pollNrefer() {
+  const d = await (await fetch(`/case/${caseId}/status`)).json();
+  if (d.ok) {
+    document.getElementById('fillLog').textContent = d.log;
+    if (d.nrefer_at && d.nrefer_at !== nreferStartAt) {
+      toast('✅ บันทึกบน nRefer แล้ว (ref ' + (d.nrefer_ref || '') + ')', 5000);
+      if (btnNrefer) { btnNrefer.textContent = '☁ บันทึกแล้ว — รีเฟรชเพื่อตรวจรายการ'; btnNrefer.disabled = true; }
+      return;
+    }
+  }
+  if (d.ok && !d.fill_running) { toast(d.nrefer_state === 'uncertain' || d.nrefer_state === 'review' ? 'รีเฟรชหน้านี้เพื่อระบุผลหลังตรวจทะเบียน nRefer ก่อนส่งซ้ำ' : 'จบการกรอก nRefer แล้ว', 5000); return; }
+  setTimeout(pollNrefer, 3000);
 }
 
 async function pollStatus() {

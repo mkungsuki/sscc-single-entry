@@ -1,0 +1,15 @@
+{
+  "captured_date":"2026-09-11",
+  "web_version":"5.0.8-2026.08.07-1",
+  "source":"Authenticated DOM: lower tabs select[name=editRow.status], available options only; not a raw API response",
+  "current_patient_status_captured":false,
+  "options":[
+    {"code":"1","label":"อยู่ระหว่างการรักษา/ติดตามเยี่ยม, 1"},
+    {"code":"2","label":"สิ้นสุดการติดตามเยี่ยม: หาย/ดีขึ้น, 2"},
+    {"code":"3","label":"สิ้นสุดการติดตามเยี่ยม: เข้าสู่ LTC, 3"},
+    {"code":"4","label":"สิ้นสุดการติดตามเยี่ยม: ไม่สมัครใจรักษา, 4"},
+    {"code":"5","label":"สิ้นสุดการติดตามเยี่ยม: ย้ายสถานพยาบาล, 5"},
+    {"code":"10","label":"สิ้นสุดการติดตามเยี่ยม: เสียชีวิต, 10"},
+    {"code":"11","label":"สิ้นสุดการติดตามเยี่ยม: ไม่พบผู้ป่วย, 11"}
+  ]
+}

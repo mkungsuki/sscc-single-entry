@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "sscc-app",
+      "name": "sscc",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["app/server.py"],
+      "runtimeArgs": ["C:\\SSCC\\app\\server.py"],
       "port": 8547
+    },
+    {
+      "name": "cprisk",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["C:\\AI med hospital\\CPRISK\\app\\server.py"],
+      "port": 8548
     }
   ]
 }

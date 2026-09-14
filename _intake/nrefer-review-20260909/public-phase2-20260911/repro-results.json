@@ -1,0 +1,85 @@
+[
+  {
+    "test": "getPerson/reject",
+    "observed": {
+      "loading": true,
+      "rejected": true
+    },
+    "limit": "Extracted method; not a live HIS request."
+  },
+  {
+    "test": "getPerson/resolved_error",
+    "observed": {
+      "loading": false,
+      "rejected": false
+    },
+    "limit": "Extracted method; not a live HIS request."
+  },
+  {
+    "test": "getPerson/empty_hn",
+    "observed": {
+      "loading": false,
+      "rejected": false
+    },
+    "limit": "Extracted method; not a live HIS request."
+  },
+  {
+    "test": "BI/reload/number",
+    "observed": {
+      "sum_score": 3,
+      "synthetic_item": "3"
+    },
+    "limit": "Whether backend returns numeric or string scores is not observed."
+  },
+  {
+    "test": "BI/reload/string",
+    "observed": {
+      "sum_score": 0,
+      "synthetic_item": "0"
+    },
+    "limit": "Whether backend returns numeric or string scores is not observed."
+  },
+  {
+    "test": "BI/save-zero/no-old-score",
+    "observed": {
+      "score": null,
+      "scoreOmittedInJson": true
+    },
+    "limit": "Confirms client payload only; backend handling is unknown."
+  },
+  {
+    "test": "BI/save-zero/12",
+    "observed": {
+      "score": 12,
+      "scoreOmittedInJson": false
+    },
+    "limit": "Confirms client payload only; backend handling is unknown."
+  },
+  {
+    "test": "main/save/ref=0",
+    "observed": [
+      {
+        "emit": {
+          "saved": 1
+        }
+      }
+    ],
+    "limit": "Service responses stubbed; DOM navigation not exercised."
+  },
+  {
+    "test": "main/save/ref=123",
+    "observed": [
+      {
+        "reload": 1
+      }
+    ],
+    "limit": "Service responses stubbed; DOM navigation not exercised."
+  },
+  {
+    "test": "main/parent-after-new-save",
+    "observed": {
+      "activeTab": "search"
+    },
+    "limit": "Extracted parent method."
+  }
+]

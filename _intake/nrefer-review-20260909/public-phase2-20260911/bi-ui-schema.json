@@ -1,0 +1,52 @@
+{
+  "captured_date": "2026-09-11",
+  "web_version": "5.0.8-2026.08.07-1",
+  "source": "Authenticated DOM: core-patient-stroke dmis-disc-evaluate .evaluate-choice; labels and available options only",
+  "provenance": "UI-rendered reference choices, not a raw evaluate-choice API response. Keys parsed from question labels; scores parsed from displayed option captions.",
+  "patient_values_captured": false,
+  "group_type": "BI",
+  "max_total": 20,
+  "selector_contract": "Scope by component, question .evaluate-choice and exact option caption. Radio name/value attributes are absent; id is repeated within a question. Do not use id or name+value to locate a BI option.",
+  "items": [
+    {"seq":1,"name":"feeding","caption":"Feeding (การรับประทานอาหารที่เตรียมให้)","choices":[
+      {"score":0,"display":"ไม่สามารถตักอาหารเข้าปากได้ ต้องมีคนช่วยป้อนให้ , 0"},
+      {"score":1,"display":"ตักอาหารเองได้ แต่ต้องมีคนช่วย เช่น ใช้ช้อนตักเตรียม หรือตัดเป็นชิ้นเล็กๆ ไว้ให้ล่วงหน้า, 1"},
+      {"score":2,"display":"ตักอาหาร และช่วยตัวเองได้เป็นปกติ, 2"}]},
+    {"seq":2,"name":"transfer","caption":"Transfer (การลุกจากที่นอน/จากเตียง ไปยังเก้าอี้)","choices":[
+      {"score":0,"display":"ไม่สามารถนั่งได้ นั่งแล้วจะล้มเสมอ, 0"},
+      {"score":1,"display":"ต้องการความช่วยเหลืออย่างมากจึงจะนั่งได้, 1"},
+      {"score":2,"display":"ต้องการความช่วยเหลือบ้าง, 2"},
+      {"score":3,"display":"ทำเองได้ทุกขั้นตอน, 3"}]},
+    {"seq":3,"name":"grooming","caption":"Grooming (ล้างหน้า แปรงฟัน หวีผม)","choices":[
+      {"score":0,"display":"ต้องการความช่วยเหลือ, 0"},
+      {"score":1,"display":"ทำเองได้ถ้าเตรียมอุปกรณ์ไว้ให้, 1"}]},
+    {"seq":4,"name":"toilet","caption":"Toilet use (การใช้สุขา)","choices":[
+      {"score":0,"display":"ช่วยตัวเองไม่ได้, 0"},
+      {"score":1,"display":"ทำเองได้-อย่างน้อยทำความสะอาดตัวเองได้, 1"},
+      {"score":2,"display":"ช่วยเหลือตัวเองได้ดี, 2"}]},
+    {"seq":5,"name":"bathing","caption":"Bathing (การอาบน้ำ)","choices":[
+      {"score":0,"display":"ต้องมีคนช่วยหรือทำให้, 0"},
+      {"score":1,"display":"อาบน้ำได้เอง ทำได้ทุกขั้นตอน, 1"}]},
+    {"seq":6,"name":"mobility","caption":"Mobility (การเคลื่อนไหวภายในบ้าน)","choices":[
+      {"score":0,"display":"เคลื่อนไปที่ไหนไม่ได้, 0"},
+      {"score":1,"display":"ต้องใช้รถเข็นให้เคลื่อนที่ได้เอง, 1"},
+      {"score":2,"display":"เดินหรือเคลื่อที่โดยมีคนช่วย, 2"},
+      {"score":3,"display":"เคลื่อนที่ได้เอง, 3"}]},
+    {"seq":7,"name":"stairs","caption":"Stairs (การขึ้น-ลงบันได 1 ชั้น)","choices":[
+      {"score":0,"display":"ไม่สามารถทำได้, 0"},
+      {"score":1,"display":"ต้องมีคนช่วย, 1"},
+      {"score":2,"display":"ขึ้นลงได้เอง-walker จะต้องเอาขึ้นลงได้, 2"}]},
+    {"seq":8,"name":"dressing","caption":"Dressing (การสวมใส่เสื้อผ้า)","choices":[
+      {"score":0,"display":"ต้องมีคนสวมใส่ให้ ช่วยตนเองไม่ได้หรือได้น้อย, 0"},
+      {"score":1,"display":"ช่วยตัวเองได้ไม่น้อยกว่า 50% ที่เหลือให้ต้องมีคนช่วย, 1"},
+      {"score":2,"display":"ช่วยเหลือตัวเองได้ดี, 2"}]},
+    {"seq":9,"name":"bowel","caption":"Bowels (การควบคุบการขับถ่ายอุจจาระ)","choices":[
+      {"score":0,"display":"ควบคุมไม่ได้หรือต้องการการสวนอุจจาระอยู่เสมอ, 0"},
+      {"score":1,"display":"ควบคุมไม่ได้เป็นบางครั้งไม่เกิน 1 ครั้งต่อสัปดาห์, 1"},
+      {"score":2,"display":"สามารถควบคุมได้เป็นปกติ, 2"}]},
+    {"seq":10,"name":"urine","caption":"Bladder (การขับถ่ายปัสสาวะ)","choices":[
+      {"score":0,"display":"ควบคุมไม่ได้ หรือใส่สายสวนปัสสาวะไว้, 0"},
+      {"score":1,"display":"ควบคุมไม่ได้เป็นบางครั้ง (น้อยกว่าวันละ 1 ครั้ง), 1"},
+      {"score":2,"display":"ควบคุมได้เป็นปกติ, 2"}]}
+  ]
+}

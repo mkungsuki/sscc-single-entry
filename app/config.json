@@ -3,5 +3,8 @@
   "master_dir": "",
   "sscc_base_url": "https://neuronetworks.org/stroke",
   "browser_channel": "msedge",
-  "hospital_name": "โรงพยาบาลชุมแพ"
+  "hospital_name": "โรงพยาบาลชุมแพ",
+  "nrefer_enabled": true,
+  "nrefer_base_url": "https://nrefer.moph.go.th/beta",
+  "nrefer_api_url": "https://nrefer.moph.go.th/api/beta"
 }

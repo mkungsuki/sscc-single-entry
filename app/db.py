@@ -28,6 +28,11 @@ def init():
                 fill_log TEXT DEFAULT '',
                 created_at TEXT, updated_at TEXT, submitted_at TEXT
             )""")
+        # คอลัมน์ที่เพิ่มทีหลัง (ฐานเก่าไม่มี) — เติมแบบไม่ทำข้อมูลเดิมหาย
+        have = {r[1] for r in c.execute("PRAGMA table_info(cases)").fetchall()}
+        for col in ("nrefer_ref TEXT", "nrefer_at TEXT", "nrefer_state TEXT DEFAULT 'draft'"):
+            if col.split()[0] not in have:
+                c.execute(f"ALTER TABLE cases ADD COLUMN {col}")
         c.execute("CREATE INDEX IF NOT EXISTS idx_cases_hn ON cases(hn)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status)")
 
@@ -59,7 +64,8 @@ def get_case(case_id):
 
 
 def list_cases(q="", status="", limit=200):
-    sql = "SELECT id, status, hn, fname, sscc_patient_id, created_at, updated_at, submitted_at FROM cases"
+    sql = ("SELECT id, status, hn, fname, sscc_patient_id, created_at, updated_at, submitted_at, "
+           "nrefer_ref, nrefer_at, nrefer_state FROM cases")
     where, args = [], []
     if q:
         where.append("(hn LIKE ? OR fname LIKE ?)")
@@ -97,6 +103,55 @@ def set_submitted(case_id, sscc_patient_id, log=""):
     with _conn() as c:
         c.execute("UPDATE cases SET status='submitted', sscc_patient_id=?, submitted_at=?, fill_log=? WHERE id=?",
                   (sscc_patient_id, now, log, case_id))
+
+
+def set_nrefer(case_id, ref):
+    """จำผลบันทึกที่ยืนยันแล้ว; ไม่ใช้เป็นสิทธิ์เปิด Add new ซ้ำ"""
+    now = datetime.now().isoformat(timespec="seconds")
+    with _conn() as c:
+        c.execute("UPDATE cases SET nrefer_ref=?, nrefer_at=?, nrefer_state='saved' WHERE id=?", (ref, now, case_id))
+
+
+def set_nrefer_state(case_id, state):
+    if state not in ("draft", "review", "uncertain", "saved"):
+        raise ValueError("invalid nRefer state")
+    with _conn() as c:
+        c.execute("UPDATE cases SET nrefer_state=? WHERE id=?", (state, case_id))
+
+
+def _nrefer_conflict(conn, case):
+    hn = str(case["data"].get("x_a2") or "").strip()
+    an = str(case["data"].get("cf_an") or "").strip()
+    if not hn or not an:
+        return None
+    rows = conn.execute("SELECT id, data FROM cases WHERE hn=? AND id<>? "
+                        "AND (nrefer_ref IS NOT NULL OR nrefer_state IN ('review','uncertain','saved'))",
+                        (hn, case["id"]))
+    for row in rows:
+        if str(json.loads(row["data"]).get("cf_an") or "").strip() == an:
+            return row["id"]
+    return None
+
+
+def nrefer_conflict(case):
+    """Another local case owns this admission; never compare by HN alone."""
+    with _conn() as conn:
+        return _nrefer_conflict(conn, case)
+
+
+def claim_nrefer(case_id):
+    """Atomically reserve one local admission before any browser interaction."""
+    with _conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+        if not row or row["nrefer_ref"] or row["nrefer_state"] in ("review", "uncertain", "saved"):
+            return False
+        case = dict(row)
+        case["data"] = json.loads(case["data"])
+        if _nrefer_conflict(conn, case) is not None:
+            return False
+        conn.execute("UPDATE cases SET nrefer_state='review' WHERE id=?", (case_id,))
+        return True
 
 
 def append_log(case_id, msg):

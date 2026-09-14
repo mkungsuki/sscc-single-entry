@@ -1,0 +1,136 @@
+{
+  "observed_version": "5.0.8-2026.08.07-1",
+  "date": "2026-09-11",
+  "source_url": "https://nrefer.moph.go.th/beta/chunk-UIVIL3PE.js",
+  "needs": [
+    {
+      "web_key": "editRow.evaluates.disc_respiratory",
+      "label": "1.ด้านระบบทางเดินหายใจ",
+      "stored_key": "cf_need_respiratory"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_nutrition",
+      "label": "2.ด้านระบบทางเดินอาหาร/โภชนาการ",
+      "stored_key": "cf_need_nutrition"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_bowel",
+      "label": "3.ด้านระบบทางเดินปัสสาวะและการขับถ่าย",
+      "stored_key": "cf_need_bowel"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_swallow",
+      "label": "4.ด้านระบบการกลืนและการสื่อสาร",
+      "stored_key": "cf_need_swallow"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_memory",
+      "label": "5.ด้านสมองการรู้คิดความจำ",
+      "stored_key": "cf_need_memory"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_skin",
+      "label": "6.ด้านระบบผิวหนัง",
+      "stored_key": "cf_need_skin"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_pain",
+      "label": "7. ด้านการจัดการความปวด",
+      "stored_key": "cf_need_pain"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_musle",
+      "label": "8.กล้ามเนื้อกระดูกและข้อ",
+      "stored_key": "cf_need_musle"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_mobility",
+      "label": "9.ด้านการเคลื่อนไหว",
+      "stored_key": "cf_need_mobility"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_daily",
+      "label": "10.ด้านการปฏิบัติกิจวัตรประจำวัน",
+      "stored_key": "cf_need_daily"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_medicine",
+      "label": "11. ด้านการบริหารยา/ให้ยา",
+      "stored_key": "cf_need_medicine"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_spiritual",
+      "label": "12.ด้านจิตใจ/จิตวิญญาณผู้ป่วยและญาติ",
+      "stored_key": "cf_need_spiritual"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_healthrisk",
+      "label": "13.ด้านการปรับพฤติกรรมเสี่ยงทางสุขภาพ",
+      "stored_key": "cf_need_healthrisk"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_eqm",
+      "label": "14.ด้านความพร้อมกายอุปกรณ์และอุปกรณ์",
+      "stored_key": "cf_need_eqm"
+    },
+    {
+      "web_key": "editRow.evaluates.disc_env",
+      "label": "15.ด้านเศรษฐกิจ/แหล่งประโยชน์/บ้านและสิ่งแวดล้อม",
+      "stored_key": "cf_need_env"
+    }
+  ],
+  "impairments": [
+    {
+      "web_key": "editRow.evaluates.swallowing",
+      "stored_key": "cf_imp_swallowing"
+    },
+    {
+      "web_key": "editRow.evaluates.communication",
+      "stored_key": "cf_imp_communication"
+    },
+    {
+      "web_key": "editRow.evaluates.mobility",
+      "stored_key": "cf_imp_mobility"
+    },
+    {
+      "web_key": "editRow.evaluates.cognitive",
+      "stored_key": "cf_imp_cognitive"
+    },
+    {
+      "web_key": "editRow.evaluates.bowel",
+      "stored_key": "cf_imp_bowel"
+    }
+  ],
+  "imc": [
+    {
+      "value": "1",
+      "id": "editRow.imc1",
+      "label": "เข้าเกณฑ์ IMC"
+    },
+    {
+      "value": "0",
+      "id": "editRow.imc0",
+      "label": "ไม่เข้าเกณฑ์ IMC ไม่ต้องดูแลต่อเนื่อง"
+    },
+    {
+      "value": "2",
+      "id": "editRow.imc0",
+      "label": "ไม่เข้าเกณฑ์ IMC แต่ส่งดูแลต่อเนื่อง"
+    }
+  ],
+  "caregiver": [
+    {
+      "value": "1",
+      "label": "พร้อม"
+    },
+    {
+      "value": "0",
+      "label": "ไม่พร้อม"
+    }
+  ],
+  "bi_reference_schema": "bi-ui-schema.json",
+  "bi_reference_status": "Authenticated UI reference captured under approved metadata-only scope; raw API response not captured",
+  "status_reference_schema": "service-status-ui-schema.json",
+  "live_plan_verified": true,
+  "inspection_scope": "Labels, control metadata and reference choices only; no identifiers, selected case values or free text"
+}

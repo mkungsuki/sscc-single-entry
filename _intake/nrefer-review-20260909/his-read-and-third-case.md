@@ -1,0 +1,13 @@
+# HIS read guard and third case — 2026-09-11
+
+Evidence: nRefer's public template disables date controls while loading. The public HIS client's getPerson awaits POST to configured HIS base / HIS-name / person; rejection leaves the surrounding loading flag set. Our inspection guard previously rejected those POST reads. Local regression reproduced disabled date input with the old guard and an editable date input with the configured read allowlist. This confirms the mechanism in reproduction; the previous production request itself was not captured.
+
+Change: read local_api configuration (public environment constant verified in chunk-HIED3E66.js) without exporting credentials. Permit POST person/admission/service/diagnosis-ipd only on that configured HIS origin and path, exactly one HIS-name segment below its base. Reject overlap with nRefer API. All write endpoints remain blocked; no fake responses or forced enabling of disabled controls.
+
+Validation: full isolated suite passed 40 tests in 75.944 seconds. Both actual fillers processed three separate local mock cases using their existing tab. nRefer login routine was invoked once across all three. A follow-up test also verified each round's distinct HN/AN and passed in 20.541 seconds. This verifies local continuity, not server-side session lifetime on production websites.
+
+Created local synthetic case8052, TEST26091103 / TESTAN26091103, named ทดสอบต่อเนื่องสาม ห้ามบันทึกจริง. Based on the complete synthetic fixture, no surgery, no citizen identifier, no timeline warnings. It is distinct from old cases, not a modification of them.
+
+Deployment: previous browser status was closed. Restarted the local server to load the guard fix and review-panel UX changes. Started case8052 in no-save mode for live verification; login and actual date readback remain to be confirmed. No production save was performed.
+
+Live follow-up: user reports the same symptom. Screenshot of HIS API Connection shows empty-looking HIS API / Request Key inputs, all connection checks failing, and an HTTP404 response from https://nrefer.moph.go.th/his/alive. This is consistent with absent/incorrect HIS base configuration in this browser profile; it is not proof that the hospital HIS itself is down or that the key is invalid. The allowlist fix does not establish a missing connection. At inspection the worker was still working while the user had navigated to settings, so this run also cannot establish final form readback. Asked whether the normal browser has a successful HIS connection, without requesting any secret. Do not claim the live date issue resolved.

@@ -26,27 +26,36 @@
   <table>
     <tr>
       <th style="width:34px;text-align:center"><input type="checkbox" id="selAll" style="width:auto" title="เลือกเคสร่างทั้งหน้า"></th>
-      <th style="width:70px">เคส</th><th>HN</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>SSCC ID</th><th>แก้ไขล่าสุด</th>
+      <th style="width:70px">เคส</th><th>HN</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>SSCC ID</th>
+      {% if config.get('nrefer_enabled', True) %}<th title="ทะเบียน Stroke & IMC (DMIS) ของ nRefer กระทรวง">nRefer</th>{% endif %}
+      <th>แก้ไขล่าสุด</th>
     </tr>
     {% for c in cases %}
     <tr>
-      <td style="text-align:center">{% if c.status == 'draft' %}<input type="checkbox" class="qsel" value="{{ c.id }}" style="width:auto">{% endif %}</td>
+      <td style="text-align:center"><input type="checkbox" class="qsel" value="{{ c.id }}" data-status="{{ c.status }}"
+          data-nrefer="{{ 1 if c.nrefer_ref or c.nrefer_state in ('review', 'uncertain') else 0 }}" style="width:auto"></td>
       <td><a href="/case/{{ c.id }}">#{{ c.id }}</a></td>
       <td><a href="/case/{{ c.id }}">{{ c.hn or '-' }}</a></td>
       <td><a href="/case/{{ c.id }}" style="color:inherit;text-decoration:none">{{ c.fname or '-' }}</a></td>
       <td><span class="badge {{ c.status }}">{{ {'draft':'📝 ร่าง','submitted':'✅ ส่งแล้ว','imported':'📦 นำเข้า'}.get(c.status, c.status) }}</span></td>
       <td>{{ c.sscc_patient_id or '' }}</td>
+      {% if config.get('nrefer_enabled', True) %}
+      <td style="font-size:13px">{% if c.nrefer_ref %}<span title="{{ c.nrefer_at }}">☁ ส่งแล้ว{% if c.nrefer_ref != 'sent' %} ({{ c.nrefer_ref }}){% endif %}</span>{% elif c.nrefer_state in ('review', 'uncertain') %}<span style="color:#b45309">ต้องตรวจผล</span>{% else %}<span style="color:#bbb">—</span>{% endif %}</td>
+      {% endif %}
       <td style="font-size:12.5px;color:#666">{{ c.updated_at or '' }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="7" style="text-align:center;color:#888;padding:26px">
+    <tr><td colspan="8" style="text-align:center;color:#888;padding:26px">
       {% if status_f == 'draft' %}ไม่มีเคสร่างค้าง — เยี่ยม!{% else %}ยังไม่มีเคส — กด "＋ เคสใหม่" เพื่อเริ่ม{% endif %}
     </td></tr>
     {% endfor %}
   </table>
   <div id="queueBar" style="margin-top:12px;display:none;align-items:center;gap:10px">
-    <button class="btn btn-success" id="btnQueue">🚀 ส่งเคสที่เลือกเข้า SSCC (<span id="qCount">0</span>)</button>
-    <span style="font-size:13px;color:#777">โปรแกรมจะพาไปทีละเคส — ตรวจแล้วกด [บันทึก] บนเว็บ เสร็จแล้วขึ้นเคสถัดไปให้เอง</span>
+    <button class="btn btn-success" id="btnQueue">🚀 ส่งเคสร่างที่เลือกเข้า SSCC (<span id="qCount">0</span>)</button>
+    {% if config.get('nrefer_enabled', True) %}
+    <button class="btn" id="btnQueueNrefer" style="background:#4a5bd6;color:#fff">☁ ส่งเคสที่เลือกเข้า nRefer (<span id="nCount">0</span>)</button>
+    {% endif %}
+    <span style="font-size:13px;color:#777">ทั้งสองระบบ: โปรแกรมพาไปทีละเคสในหน้าต่าง Edge ตรวจแล้วกดบันทึกยืนยันเองทุกเคส</span>
   </div>
   <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#666">
     ไฟล์ Excel เก็บที่: <b id="masterDir" style="font-weight:500;color:#444">{{ master_dir }}</b>
@@ -92,9 +101,12 @@ function resetDir() { setDir({action: 'reset'}); }
 // ---- เลือกเคสร่างเพื่อส่งเป็นคิว ----
 function selected() { return Array.from(document.querySelectorAll('.qsel:checked')).map(c => +c.value); }
 function refreshBar() {
-  const n = selected().length;
+  const boxes = Array.from(document.querySelectorAll('.qsel:checked'));
+  const n = boxes.length;
   document.getElementById('queueBar').style.display = n ? 'flex' : 'none';
-  document.getElementById('qCount').textContent = n;
+  document.getElementById('qCount').textContent = boxes.filter(c => c.dataset.status === 'draft').length;
+  const nc = document.getElementById('nCount');
+  if (nc) nc.textContent = n;
 }
 document.querySelectorAll('.qsel').forEach(c => c.addEventListener('change', refreshBar));
 document.getElementById('selAll').addEventListener('change', e => {
@@ -103,14 +115,31 @@ document.getElementById('selAll').addEventListener('change', e => {
 });
 
 document.getElementById('btnQueue').onclick = async () => {
-  const ids = selected();
-  if (!ids.length) return;
+  const ids = selected().filter(i => document.querySelector(`.qsel[value="${i}"]`).dataset.status === 'draft');
+  if (!ids.length) { toast('เลือกเคสสถานะ "ร่าง" เพื่อส่งเข้า SSCC'); return; }
   if (!confirm(`ส่ง ${ids.length} เคสเข้า SSCC ต่อกันเป็นคิว?\n\nโปรแกรมจะเปิด Edge (login ครั้งเดียว) แล้วพาไปทีละเคส\nตรวจทานแต่ละเคสแล้วกด [บันทึก] บนเว็บ — เสร็จแล้วจะขึ้นเคสถัดไปให้เอง`)) return;
   const r = await fetch('/queue/submit', {method: 'POST',
     headers: {'Content-Type': 'application/json'}, body: JSON.stringify({case_ids: ids})});
   const d = await r.json();
   if (!d.ok) { toast('❌ ' + d.error); return; }
   toast(`🚀 เริ่มส่งคิว ${d.count} เคส — ไปที่หน้าต่าง Edge`);
+  wasRunning = true;
+  setTimeout(pollQueue, 1500);
+};
+
+const btnQN = document.getElementById('btnQueueNrefer');
+if (btnQN) btnQN.onclick = async () => {
+  const ids = selected();
+  if (!ids.length) return;
+  const again = ids.filter(i => document.querySelector(`.qsel[value="${i}"]`).dataset.nrefer === '1').length;
+  if (again) { toast('มีเคสที่เคยบันทึกแล้ว — เปิดตรวจรายการเดิมใน nRefer และนำออกจากคิว', 5000); return; }
+  if (!confirm(`กรอกฟอร์ม nRefer (Stroke & IMC) ให้ ${ids.length} เคส?` + (again ? `\n(${again} เคสเคยบันทึกบน nRefer แล้ว — ให้ตรวจรายการเดิมก่อน)` : '') +
+      `\n\nโปรแกรมจะเปิด Edge (login ThaID ถ้ายังไม่ได้) แล้วกรอกฟอร์มให้ทีละเคส — ตรวจแล้วกด [บันทึก] ของ nRefer เองทุกเคส`)) return;
+  const r = await fetch('/queue/nrefer', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({case_ids: ids})});
+  const d = await r.json();
+  if (!d.ok) { toast('❌ ' + d.error, 6000); return; }
+  toast(`☁ เริ่มส่ง nRefer ${d.count} เคส — ไปที่หน้าต่าง Edge`);
   wasRunning = true;
   setTimeout(pollQueue, 1500);
 };
@@ -123,12 +152,13 @@ async function pollQueue() {
   const b = document.getElementById('queueBanner');
   if (d.running) {
     wasRunning = true;
-    const done = d.cases.filter(c => c.status === 'submitted').length;
+    const nref = d.target === 'nrefer';
+    const done = nref ? d.cases.filter(c => c.nrefer_ref).length : d.cases.filter(c => c.status === 'submitted').length;
     const cur = d.cases.find(c => c.id === d.current);
     b.style.display = '';
-    b.textContent = `⏳ กำลังส่งเข้า SSCC — ตอนนี้อยู่ที่เคส #${d.current}` +
+    b.textContent = (nref ? `☁ กำลังส่งเข้า nRefer — ตอนนี้อยู่ที่เคส #${d.current}` : `⏳ กำลังส่งเข้า SSCC — ตอนนี้อยู่ที่เคส #${d.current}`) +
       (cur && cur.hn ? ` (HN ${cur.hn})` : '') +
-      ` • สำเร็จแล้ว ${done}/${d.cases.length} เคส • ไปตรวจและกด [บันทึก] ที่หน้าต่าง Edge`;
+      ` • สำเร็จแล้ว ${done}/${d.cases.length} เคส • ` + (nref ? 'ถ้ายังไม่ได้ login ให้สแกน ThaID ที่หน้าต่าง Edge' : 'ไปตรวจและกด [บันทึก] ที่หน้าต่าง Edge');
     setTimeout(pollQueue, 3000);
   } else {
     b.style.display = 'none';

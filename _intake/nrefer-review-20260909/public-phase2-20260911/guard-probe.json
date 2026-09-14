@@ -1,0 +1,62 @@
+[
+  {
+    "method": "GET",
+    "endpoint": "evaluate-choice",
+    "observed": "allow"
+  },
+  {
+    "method": "GET",
+    "endpoint": "service-status",
+    "observed": "allow"
+  },
+  {
+    "method": "POST",
+    "endpoint": "dmis-evaluate",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "hospcare",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "imc-evaluate",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-person",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-patient",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-dmis-evaluate",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-hospcare",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-imc-evaluate",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "save-visit-evaluate",
+    "observed": "block"
+  },
+  {
+    "method": "POST",
+    "endpoint": "delete-dmis-evaluate",
+    "observed": "block"
+  }
+]

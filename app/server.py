@@ -15,7 +15,11 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 import checks
 import db
 import excel_export
+import nrefer_map
 import runlock
+import case_form
+import stroke_motor
+from browser_session import BrowserSession, BusyError
 
 APP_DIR = Path(__file__).parent
 CONFIG = json.loads((APP_DIR / "config.json").read_text(encoding="utf-8"))
@@ -24,6 +28,25 @@ DEFAULTS_PATH = APP_DIR / "schema" / "custom_fields_defaults.json"
 CF_TYPES = {"text", "number", "select", "checkbox-group", "date", "time", "textarea"}
 
 app = Flask(__name__)
+browser_session = BrowserSession(CONFIG)
+
+
+@app.errorhandler(BusyError)
+def browser_busy(error):
+    return jsonify(ok=False, error=str(error)), 409
+
+
+@app.route("/browser/status")
+def browser_status():
+    return jsonify(browser_session.status())
+
+
+@app.route("/browser/finish", methods=["POST"])
+def browser_finish():
+    if (request.get_json(silent=True) or {}).get("discard_unfinished") is not True:
+        return jsonify(ok=False, error="ยืนยันจบรอบนี้ก่อน"), 400
+    browser_session.finish_review()
+    return jsonify(ok=True)
 
 
 def read_custom_raw():
@@ -108,7 +131,7 @@ def load_schema():
         f["section"] = "CF"
         f["section_title"] = "ข้อมูลเพิ่มเติมของ รพ. (ไม่ส่งเข้า SSCC)"
         custom.append(f)
-    return schema["fields"] + custom
+    return case_form.arrange(schema["fields"] + custom)
 
 
 def field_key(f):
@@ -120,14 +143,13 @@ def show_if_map(fields):
 
 
 def spawn_fill(case_ids, base_url):
-    """เปิดโปรเซสกรอกเว็บ SSCC + เขียนล็อกทันที (กันกดส่งซ้อนช่วงโปรเซสยังไม่ทันตั้งตัว)"""
-    proc = subprocess.Popen(
-        [sys.executable, str(APP_DIR / "fill_sscc.py"), "--cases", ",".join(map(str, case_ids)),
-         "--base-url", base_url],
-        cwd=str(APP_DIR),
-        creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
-    )
-    runlock.write({"pid": proc.pid, "cases": list(case_ids), "current": case_ids[0]})
+    """ส่งงานให้แท็บ SSCC ของเบราว์เซอร์ที่เปิดค้างไว้"""
+    browser_session.submit("sscc", case_ids, base_url=base_url)
+
+
+def spawn_nrefer(case_ids, no_save=False):
+    """ส่งงานให้แท็บ nRefer เดิม โดยไม่ปิด session หลังจบเคส"""
+    browser_session.submit("nrefer", case_ids, no_save=no_save)
 
 
 @app.route("/")
@@ -178,6 +200,10 @@ def case_save():
             known = {field_key(f) for f in load_schema()}
             preserved = {k: v for k, v in old["data"].items() if k not in known}
             data = {**preserved, **data}
+    try:
+        stroke_motor.annotate(data)
+    except ValueError as exc:
+        return jsonify(ok=False, error=str(exc)), 400
     # ตรวจ timeline/ความสอดคล้อง — บันทึกได้เสมอ (ไม่ทำข้อมูลหาย) แต่เก็บธงไว้กับเคส
     result = checks.run(data)
     codes = [f["code"] for f in result["flags"]]
@@ -276,6 +302,130 @@ def queue_submit():
     return jsonify(ok=True, count=len(ids))
 
 
+def _nrefer_ready(case):
+    """เหตุผลที่ยังส่ง nRefer ไม่ได้ (None = ส่งได้)"""
+    if not CONFIG.get("nrefer_enabled", True):
+        return "ปิดการส่ง nRefer ไว้ใน config.json (nrefer_enabled)"
+    if case.get("nrefer_ref") or case.get("nrefer_state") in ("review", "uncertain"):
+        return "เคสนี้เคยบันทึกหรือรอยืนยันผล — ตรวจ/แก้รายการเดิมในทะเบียน nRefer ไม่สร้างใหม่ซ้ำ"
+    if not str(case["data"].get("cf_an") or "").strip():
+        return "กรอก AN ก่อน เพื่อแยกครั้งรักษาบน nRefer"
+    conflict = db.nrefer_conflict(case)
+    if conflict is not None:
+        return f"เคส #{conflict} มี HN/AN เดียวกันและเคยส่งหรือรอยืนยันผล — ตรวจรายการเดิมก่อน"
+    built = nrefer_map.build(case["data"], CONFIG.get("nrefer_hcode", ""), 0)
+    if not built["ok"]:
+        return built["reason"]
+    return None
+
+
+@app.route("/case/<int:case_id>/nrefer/preview")
+def nrefer_preview(case_id):
+    case = db.get_case(case_id)
+    if not case:
+        return jsonify(ok=False, error="ไม่พบเคส"), 404
+    why = _nrefer_ready(case)
+    if why:
+        return jsonify(ok=False, error=why), 400
+    built = nrefer_map.build(case["data"], CONFIG.get("nrefer_hcode", "") or "(รพ.ตาม login)", 0)
+    if not built["ok"]:
+        return jsonify(ok=False, error=built["reason"])
+    return jsonify(ok=True, summary=built["summary"], notes=built["notes"],
+                   nrefer_ref=case.get("nrefer_ref"), nrefer_at=case.get("nrefer_at"))
+
+
+@app.route("/case/<int:case_id>/nrefer/reconcile", methods=["POST"])
+def nrefer_reconcile(case_id):
+    """User reports the result of checking the remote register; local metadata only."""
+    case = db.get_case(case_id)
+    if not case:
+        return jsonify(ok=False, error="ไม่พบเคส"), 404
+    if runlock.read():
+        return jsonify(ok=False, error="ทำงานในหน้าต่างกรอกให้เสร็จก่อนเปลี่ยนสถานะ"), 409
+    if case.get("nrefer_ref") or case.get("nrefer_state") not in ("review", "uncertain"):
+        return jsonify(ok=False, error="เคสนี้ไม่ได้อยู่ในสถานะรอตรวจผล"), 409
+    payload = request.get_json(silent=True) or {}
+    if payload.get("checked_register") is not True:
+        return jsonify(ok=False, error="ต้องตรวจ HN/AN ในทะเบียน nRefer ก่อน"), 400
+    outcome = payload.get("outcome")
+    ref = str(payload.get("ref") or "").strip()
+    if outcome == "found":
+        if ref and (not ref.isascii() or not ref.isdigit() or int(ref) <= 0):
+            return jsonify(ok=False, error="ref ต้องเป็นเลขจำนวนเต็มบวก หรือเว้นว่างถ้าไม่ทราบ"), 400
+        db.set_nrefer(case_id, ref or "sent")
+        db.append_log(case_id, "ผู้ใช้ตรวจทะเบียนแล้วพบรายการตรง HN/AN — ยืนยันสถานะในเครื่อง")
+    elif outcome == "not_found":
+        db.set_nrefer_state(case_id, "draft")
+        db.append_log(case_id, "ผู้ใช้ตรวจทะเบียนแล้วไม่พบรายการตรง HN/AN — อนุญาตให้เริ่มกรอกใหม่")
+    else:
+        return jsonify(ok=False, error="ระบุผลการตรวจทะเบียน"), 400
+    return jsonify(ok=True)
+
+
+@app.route("/case/<int:case_id>/nrefer/submit", methods=["POST"])
+def nrefer_submit(case_id):
+    case = db.get_case(case_id)
+    if not case:
+        return jsonify(ok=False, error="ไม่พบเคส"), 404
+    why = _nrefer_ready(case)
+    if why:
+        return jsonify(ok=False, error=why), 400
+    if runlock.read():
+        return jsonify(ok=False, error="มีการส่ง SSCC/nRefer ทำงานค้างอยู่ — ทำในหน้าต่าง Edge ให้เสร็จก่อน"), 409
+    pending = checks.blocking(case["data"])
+    if pending:
+        return jsonify(ok=False, error="มีข้อสงสัยเรื่อง timeline ที่ยังไม่ได้รับทราบ — แก้ข้อมูล หรือกดรับทราบพร้อมเหตุผลก่อนส่ง",
+                       warnings=pending), 400
+    db.append_log(case_id, "เริ่มส่งเข้า nRefer (Stroke & IMC)")
+    payload = request.get_json(silent=True) or {}
+    spawn_nrefer([case_id], no_save=payload.get("no_save") is True)
+    return jsonify(ok=True)
+
+
+@app.route("/case/<int:case_id>/nrefer/motor", methods=["POST"])
+def nrefer_motor(case_id):
+    case = db.get_case(case_id)
+    if not case:
+        return jsonify(ok=False, error="ไม่พบเคส"), 404
+    if not CONFIG.get('nrefer_enabled', True):
+        return jsonify(ok=False, error="ปิดการส่ง nRefer ไว้"), 400
+    if not all(str(case['data'].get(key) or '').strip() for key in ('x_a2', 'cf_an')):
+        return jsonify(ok=False, error="กรอก HN และ AN ของเคสก่อน เพื่อให้โปรแกรมตรวจว่าตรงกับหน้าที่เปิด"), 400
+    try:
+        projection = stroke_motor.project(case['data'])
+        if not projection['complete']:
+            return jsonify(ok=False, error="ยังมีคะแนน Motor power ว่างอยู่ — ระบุให้ครบก่อนกรอกตาราง nRefer"), 400
+    except ValueError as exc:
+        return jsonify(ok=False, error=str(exc)), 400
+    browser_session.submit('nrefer', [case_id], mode='motor')
+    return jsonify(ok=True)
+
+
+@app.route("/queue/nrefer", methods=["POST"])
+def queue_nrefer():
+    payload = request.get_json(force=True)
+    try:
+        ids = list(dict.fromkeys(int(i) for i in payload.get("case_ids", [])))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="รายการเคสไม่ถูกต้อง"), 400
+    if not ids:
+        return jsonify(ok=False, error="ยังไม่ได้เลือกเคส"), 400
+    if runlock.read():
+        return jsonify(ok=False, error="มีการส่ง SSCC/nRefer ทำงานค้างอยู่ — ทำในหน้าต่าง Edge ให้เสร็จก่อน"), 409
+    problems = []
+    for i in ids:
+        c = db.get_case(i)
+        why = "ไม่พบเคส" if not c else (_nrefer_ready(c) or ("เวลาขัดกันยังไม่รับทราบ" if checks.blocking(c["data"]) else None))
+        if why:
+            problems.append(f"#{i}: {why}")
+    if problems:
+        return jsonify(ok=False, error="ส่งไม่ได้ — " + "; ".join(problems)), 400
+    for i in ids:
+        db.append_log(i, f"เข้าคิวส่ง nRefer (ทั้งหมด {len(ids)} เคส)")
+    spawn_nrefer(ids)
+    return jsonify(ok=True, count=len(ids))
+
+
 @app.route("/queue/status")
 def queue_status():
     info = runlock.read()
@@ -286,8 +436,9 @@ def queue_status():
         c = db.get_case(i)
         if c:
             out.append({"id": c["id"], "hn": c["hn"], "status": c["status"],
-                        "sscc_patient_id": c.get("sscc_patient_id")})
-    return jsonify(running=True, current=info.get("current"), cases=out)
+                        "sscc_patient_id": c.get("sscc_patient_id"), "nrefer_ref": c.get("nrefer_ref"),
+                        "nrefer_at": c.get("nrefer_at")})
+    return jsonify(running=True, current=info.get("current"), target=info.get("target", "sscc"), cases=out)
 
 
 @app.route("/case/<int:case_id>/status")
@@ -297,7 +448,9 @@ def case_status(case_id):
         return jsonify(ok=False), 404
     return jsonify(ok=True, status=case["status"],
                    sscc_patient_id=case.get("sscc_patient_id"),
-                   submitted_at=case.get("submitted_at"), log=case.get("fill_log") or "")
+                   submitted_at=case.get("submitted_at"), log=case.get("fill_log") or "",
+                   nrefer_ref=case.get("nrefer_ref"), nrefer_at=case.get("nrefer_at"),
+                   nrefer_state=case.get("nrefer_state"), fill_running=bool(runlock.read()))
 
 
 @app.route("/export")

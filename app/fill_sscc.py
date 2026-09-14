@@ -53,6 +53,8 @@ def restore_session(context, base_url):
 
 
 def save_session(context, base_url):
+    if getattr(context, "_sscc_live_session", False):
+        return  # The app owns a live browser; do not export its session cookies.
     try:
         cookies = [c for c in context.cookies() if _cookie_matches(c, base_url)]
         if cookies:
@@ -428,7 +430,7 @@ def process_case(page, base_url, case, args, queue_mode):
                     log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ — ข้ามเคสนี้ไว้ส่งเดี่ยวทีหลัง")
                     return "failed"
                 log(cid, "❌ บันทึก A1-A6 ไม่สำเร็จ (ดูข้อความ SSCC ด้านบน) — แก้บนหน้าเว็บแล้วบันทึกเองได้")
-                if not args.headless:
+                if not args.headless and not getattr(args, "keep_open", False):
                     page.wait_for_timeout(REVIEW_WAIT_MS)
                 sys.exit(3)
             log(cid, "บันทึก A1-A6 แล้ว")
@@ -440,7 +442,7 @@ def process_case(page, base_url, case, args, queue_mode):
                     log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — ข้ามเคสนี้ (เคสอาจถูกสร้างบนเว็บแล้ว ตรวจหน้า list ที)")
                     return "failed"
                 log(cid, "❌ หาเคสที่เพิ่งสร้างไม่เจอ — เปิดหน้า list ให้ตรวจสอบเอง (เคสอาจถูกสร้างแล้ว)")
-                if not args.headless:
+                if not args.headless and not getattr(args, "keep_open", False):
                     page.wait_for_timeout(REVIEW_WAIT_MS)
                 sys.exit(3)
             db.set_draft_pid(cid, pid)
@@ -467,7 +469,7 @@ def process_case(page, base_url, case, args, queue_mode):
             log(cid, f"❌ {msg} — ข้ามเคสนี้ (เคสยังเป็นร่าง ส่งใหม่ได้ จะเปิดเคสเดิมไม่สร้างซ้ำ)")
             return "failed"
         log(cid, f"❌ {msg} — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ")
-        if not args.headless:
+        if not args.headless and not getattr(args, "keep_open", False):
             page.wait_for_timeout(REVIEW_WAIT_MS)
         sys.exit(3)
 
@@ -486,6 +488,8 @@ def process_case(page, base_url, case, args, queue_mode):
     robot_banner(page, f"🔍 กรอกเสร็จแล้ว — ตรวจทานทุกแท็บ แล้วกดปุ่ม [บันทึก] ท้ายฟอร์ม (HN {hn})",
                  color="#1a7f37")
     log(cid, "🔍 โปรดตรวจทานทุกแท็บบนหน้าเว็บ แล้วกดปุ่ม [บันทึก] ที่ท้ายฟอร์ม")
+    if getattr(args, "on_review", None):
+        args.on_review()
     posted = {"flag": False}
 
     def _nav(fr):
@@ -495,7 +499,17 @@ def process_case(page, base_url, case, args, queue_mode):
     page.on("framenavigated", _nav)
     try:
         # บันทึกสำเร็จบนหน้าแก้ไข -> เด้งไป stroke_formview.php (ยืนยันจาก pilot จริง 2026-07-13)
-        page.wait_for_url(re.compile(r"stroke_form(view|list)\.php"), timeout=REVIEW_WAIT_MS)
+        if getattr(args, "cancel_check", None):
+            import time
+            deadline = time.monotonic() + REVIEW_WAIT_MS / 1000
+            while not re.search(r"stroke_form(view|list)\.php", page.url):
+                if args.cancel_check():
+                    return "draft"
+                if time.monotonic() >= deadline:
+                    raise PWTimeout("review timeout")
+                page.wait_for_timeout(250)
+        else:
+            page.wait_for_url(re.compile(r"stroke_form(view|list)\.php"), timeout=REVIEW_WAIT_MS)
     except PWTimeout:
         log(cid, "หมดเวลารอตรวจทาน (60 นาที) — เคสยังเป็นร่าง ส่งใหม่ได้ทุกเมื่อ (จะเปิดเคสเดิมบนเว็บ ไม่สร้างซ้ำ)")
         return "timeout"
@@ -547,7 +561,7 @@ def main():
 
     # กันรันซ้อน: โปรไฟล์ Edge เปิดพร้อมกันสองตัวไม่ได้ (mock ใช้เบราว์เซอร์ชั่วคราว ไม่ต้องล็อก)
     if not is_mock:
-        other = runlock.read()
+        other = runlock.read() or runlock.read_session()
         if other and other.get("pid") != os.getpid():
             for c in cases:
                 log(c["id"], "❌ มีการส่งเข้า SSCC อีกชุดทำงานค้างอยู่ — รอให้เสร็จ (ดูหน้าต่าง Edge) แล้วค่อยส่งใหม่")

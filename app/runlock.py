@@ -8,6 +8,28 @@ import sys
 from pathlib import Path
 
 LOCK_PATH = Path(__file__).parent / "data" / "fill.lock"
+SESSION_PATH = Path(__file__).parent / "data" / "browser-session.lock"
+
+
+def read_session():
+    try:
+        info = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
+        return info if _pid_alive(info.get("pid", -1)) else None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def write_session():
+    SESSION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SESSION_PATH.write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
+
+
+def release_session():
+    try:
+        if json.loads(SESSION_PATH.read_text(encoding="utf-8")).get("pid") == os.getpid():
+            SESSION_PATH.unlink()
+    except (OSError, ValueError):
+        pass
 
 
 def _pid_alive(pid):
@@ -44,6 +66,7 @@ def write(info):
 
 def release():
     try:
-        LOCK_PATH.unlink()
-    except OSError:
+        if json.loads(LOCK_PATH.read_text(encoding="utf-8")).get("pid") == os.getpid():
+            LOCK_PATH.unlink()
+    except (OSError, ValueError):
         pass

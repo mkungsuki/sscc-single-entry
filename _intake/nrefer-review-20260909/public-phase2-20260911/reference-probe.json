@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://nrefer.moph.go.th/api/beta/dmis/imc/evaluate-choice",
+    "http_status": 401,
+    "rows": []
+  },
+  {
+    "url": "https://nrefer.moph.go.th/api/beta/dmis/imc/service-status",
+    "http_status": 401,
+    "rows": []
+  }
+]

@@ -187,6 +187,354 @@
       "label": "เบอร์โทรติดตามผู้ป่วย/ญาติ",
       "type": "text",
       "enabled": false
+    },
+    {
+      "key": "cf_an",
+      "label": "AN (สำหรับ nRefer)",
+      "type": "text",
+      "enabled": true,
+      "hint": "ต้องระบุ AN ก่อนกรอก nRefer เพื่อแยกครั้งรักษา — ไม่ใช้วันที่แทน AN"
+    },
+    {
+      "key": "cf_birth",
+      "label": "วันเกิด (สำหรับ nRefer)",
+      "type": "date",
+      "enabled": true,
+      "hint": "SSCC เก็บแค่อายุ แต่ nRefer มีช่องวันเกิด — เว้นได้ ไม่บังคับ"
+    },
+    {
+      "key": "cf_sbp",
+      "label": "BP แรกรับ — Systolic (สำหรับ nRefer)",
+      "type": "number",
+      "enabled": true,
+      "min": 0,
+      "max": 300
+    },
+    {
+      "key": "cf_dbp",
+      "label": "BP แรกรับ — Diastolic (สำหรับ nRefer)",
+      "type": "number",
+      "enabled": true,
+      "min": 0,
+      "max": 200
+    },
+    {
+      "key": "cf_nrefer_dx",
+      "label": "ICD nRefer สำหรับ TIA/CVT (ให้เจ้าของทะเบียนยืนยัน)",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "I60",
+          "t": "I60"
+        },
+        {
+          "v": "I61",
+          "t": "I61"
+        },
+        {
+          "v": "I62",
+          "t": "I62"
+        },
+        {
+          "v": "I63",
+          "t": "I63"
+        },
+        {
+          "v": "I64",
+          "t": "I64"
+        },
+        {
+          "v": "I65",
+          "t": "I65"
+        },
+        {
+          "v": "I66",
+          "t": "I66"
+        },
+        {
+          "v": "I67",
+          "t": "I67"
+        },
+        {
+          "v": "I68",
+          "t": "I68"
+        },
+        {
+          "v": "I69",
+          "t": "I69"
+        }
+      ]
+    },
+    {
+      "key": "cf_nrefer_ctscan",
+      "label": "ผล CT สำหรับ nRefer (แยกจาก MRI)",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "0",
+          "t": "ไม่ทราบ"
+        },
+        {
+          "v": "1",
+          "t": "ได้ทำ CT"
+        },
+        {
+          "v": "2",
+          "t": "ไม่ได้ทำ CT"
+        }
+      ]
+    },
+    {
+      "key": "cf_nrefer_carry",
+      "label": "ผู้นำส่งสำหรับ nRefer",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "SELF",
+          "t": "มาเอง"
+        },
+        {
+          "v": "EMS",
+          "t": "EMS รพ."
+        },
+        {
+          "v": "FR",
+          "t": "EMS ท้องถิ่น"
+        },
+        {
+          "v": "RELATE",
+          "t": "ญาติ"
+        }
+      ]
+    },
+    {
+      "key": "cf_nrefer_visit_result",
+      "label": "ผลจำหน่ายสำหรับ nRefer",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "1",
+          "t": "ทุเลา/กลับบ้าน"
+        },
+        {
+          "v": "4",
+          "t": "ส่งต่อ"
+        },
+        {
+          "v": "9",
+          "t": "เสียชีวิต"
+        }
+      ]
+    },
+    {
+      "key": "cf_nrefer_ward",
+      "label": "ชื่อ Ward nRefer (ถ้ารหัส SSCC จับคู่ไม่ได้)",
+      "type": "text",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_ct_date",
+      "label": "วันที่ทำ CT (nRefer)",
+      "type": "date",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_ct_time",
+      "label": "เวลาทำ CT (nRefer)",
+      "type": "time",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_surgery_date",
+      "label": "วันเริ่มผ่าตัด (nRefer)",
+      "type": "date",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_su_date",
+      "label": "วันที่เข้า Stroke Unit (nRefer; ถ้าไม่ได้เข้า ward นี้ตั้งแต่แรกรับ)",
+      "type": "date",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_su_time",
+      "label": "เวลาเข้า Stroke Unit (nRefer)",
+      "type": "time",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_surgery_time",
+      "label": "เวลาเริ่มผ่าตัด (nRefer)",
+      "type": "time",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_surgery_end_date",
+      "label": "วันสิ้นสุดผ่าตัด (nRefer)",
+      "type": "date",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_surgery_end_time",
+      "label": "เวลาสิ้นสุดผ่าตัด (nRefer)",
+      "type": "time",
+      "enabled": true
+    },
+    {
+      "key": "cf_nrefer_gcs_eye",
+      "label": "GCS Eye (nRefer)",
+      "type": "number",
+      "enabled": true,
+      "min": 1,
+      "max": 4
+    },
+    {
+      "key": "cf_nrefer_gcs_verbal",
+      "label": "GCS Verbal (nRefer)",
+      "type": "number",
+      "enabled": true,
+      "min": 1,
+      "max": 5
+    },
+    {
+      "key": "cf_nrefer_gcs_motor",
+      "label": "GCS Motor (nRefer)",
+      "type": "number",
+      "enabled": true,
+      "min": 1,
+      "max": 6
+    },
+    {
+      "key": "cf_motor_arm_left",
+      "label": "Motor power — แขนซ้าย",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "0",
+          "t": "0"
+        },
+        {
+          "v": "1",
+          "t": "1"
+        },
+        {
+          "v": "2",
+          "t": "2"
+        },
+        {
+          "v": "3",
+          "t": "3"
+        },
+        {
+          "v": "4",
+          "t": "4"
+        },
+        {
+          "v": "5",
+          "t": "5"
+        }
+      ]
+    },
+    {
+      "key": "cf_motor_arm_right",
+      "label": "Motor power — แขนขวา",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "0",
+          "t": "0"
+        },
+        {
+          "v": "1",
+          "t": "1"
+        },
+        {
+          "v": "2",
+          "t": "2"
+        },
+        {
+          "v": "3",
+          "t": "3"
+        },
+        {
+          "v": "4",
+          "t": "4"
+        },
+        {
+          "v": "5",
+          "t": "5"
+        }
+      ]
+    },
+    {
+      "key": "cf_motor_leg_left",
+      "label": "Motor power — ขาซ้าย",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "0",
+          "t": "0"
+        },
+        {
+          "v": "1",
+          "t": "1"
+        },
+        {
+          "v": "2",
+          "t": "2"
+        },
+        {
+          "v": "3",
+          "t": "3"
+        },
+        {
+          "v": "4",
+          "t": "4"
+        },
+        {
+          "v": "5",
+          "t": "5"
+        }
+      ]
+    },
+    {
+      "key": "cf_motor_leg_right",
+      "label": "Motor power — ขาขวา",
+      "type": "select",
+      "enabled": true,
+      "options": [
+        {
+          "v": "0",
+          "t": "0"
+        },
+        {
+          "v": "1",
+          "t": "1"
+        },
+        {
+          "v": "2",
+          "t": "2"
+        },
+        {
+          "v": "3",
+          "t": "3"
+        },
+        {
+          "v": "4",
+          "t": "4"
+        },
+        {
+          "v": "5",
+          "t": "5"
+        }
+      ]
     }
   ]
 }
